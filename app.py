@@ -337,8 +337,12 @@ def render_home_setup() -> None:
             with st.container(border=current_tour_target() == "topic"):
                 render_tour_note("topic", "Make the session specific. Good examples: AWS Bedrock, LangChain, React Hooks, LangGraph state.")
                 selected_topic = st.text_input(
-                    "Pick a topic",
+                    "Pick any topic",
                     placeholder=TOPIC_PLACEHOLDER,
+                )
+                st.markdown(
+                    '<div class="topic-helper">Required topic</div>',
+                    unsafe_allow_html=True,
                 )
 
             col1, col2 = st.columns(2)
@@ -363,6 +367,7 @@ def render_home_setup() -> None:
                     start_label,
                     use_container_width=True,
                     disabled=st.session_state.get("start_button_clicked", False),
+                    type="primary",
                 ):
                     if not selected_topic.strip():
                         st.warning("Please enter a topic before starting.")
