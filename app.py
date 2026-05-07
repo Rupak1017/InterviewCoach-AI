@@ -43,7 +43,7 @@ ONBOARDING_TITLES = {
     "topic": "Now pick any topic",
     "difficulty": "Choose a level",
     "questions": "Choose question count",
-    "start": "Start Guided Practice",
+    "start": "Start Practice",
 }
 
 
@@ -427,7 +427,6 @@ def render_home_setup() -> None:
         with st.container(border=True):
             render_tour_note("main", "Use this setup panel to start a focused MCQ practice session.")
             st.markdown("### Set up Guided Practice")
-            st.caption("Pick a role, choose a topic, set the level, and start.")
 
             with st.container(border=current_tour_target() == "role"):
                 render_tour_note("role", "Choose the role that matches the interview you want to practice. Then press OK to unlock the next step.")
@@ -482,11 +481,11 @@ def render_home_setup() -> None:
                     render_tour_controls("questions")
 
             with st.container(border=current_tour_target() == "start"):
-                render_tour_note("start", "Click Start Guided Practice. The coach will take you into the first question.")
+                render_tour_note("start", "Click Start Practice. The coach will take you into the first question.")
                 start_label = (
                     "Preparing practice..."
                     if st.session_state.get("start_button_clicked", False)
-                    else "Start Guided Practice"
+                    else "Start Practice"
                 )
                 if st.button(
                     start_label,

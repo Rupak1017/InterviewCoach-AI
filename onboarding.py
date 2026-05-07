@@ -34,7 +34,7 @@ TOUR_STEPS = [
     },
     {
         "target": "start",
-        "title": "Start Guided Practice",
+        "title": "Start Practice",
         "body": "Now start the session. The coach will prepare notes, one MCQ at a time, feedback, links, and a final report.",
     },
 ]

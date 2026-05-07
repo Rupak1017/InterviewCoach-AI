@@ -20,7 +20,7 @@ Simple project explanation:
 2. Enter a topic, such as `AWS Bedrock`, `LangChain`, `React Hooks`, `LangGraph state`, `RAG`, `SQL joins`, or `Python decorators`.
 3. Choose `Easy`, `Medium`, or `Hard`.
 4. Choose 3, 5, or 10 questions.
-5. Click `Start Guided Practice`.
+5. Click `Start Practice`.
 6. Review the Quick Prep card.
 7. Select one of three answer options.
 8. Get a score, feedback, study-next items, useful links, and the correct-answer explanation.
@@ -120,10 +120,7 @@ TAVILY_API_KEY=your_tavily_key_here
 ```
 
 7. Run:
-
-```bat
-run.bat
-```
+.\run.bat
 
 8. The app should open in your browser.
 
@@ -153,7 +150,7 @@ Tavily is optional:
 TAVILY_API_KEY=your_tavily_key_here
 ```
 
-## Mock Mode
+
 
 If no Gemini key is found, the app shows:
 
@@ -169,15 +166,7 @@ Using mock study links because TAVILY_API_KEY was not found.
 
 Both mock modes are safe. The app still runs without crashing.
 
-## Manual Windows Setup
 
-```bat
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-streamlit run app.py
-```
 
 ## Project Structure
 
@@ -208,3 +197,5 @@ data/
 - Add more role-specific question packs.
 - Add optional resume-based question generation.
 - Add charts for score trends over time.
+
+.\run.bat
