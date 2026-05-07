@@ -1,8 +1,8 @@
 # InterviewCoach AI
 
-InterviewCoach AI is a Streamlit mini app with one simple flow: **Guided Practice Mode**.
+AI interview practice app that provides topic notes, MCQ questions, mistake explanations, weak-topic study links, and a final performance report.
 
-The user selects a role, enters a topic, chooses difficulty and question count, then practices one 3-option MCQ interview question at a time. The app combines quick prep, interview questions, answer grading, weak-area tracking, useful study links, and a final report.
+The user selects a role, enters a topic, chooses difficulty and question count, then practices one 3-option MCQ interview question at a time.
 
 Supported roles:
 - Frontend Developer

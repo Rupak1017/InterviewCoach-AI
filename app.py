@@ -6,6 +6,7 @@ from collections import Counter
 from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from chains import is_mock_mode
 from graph import InterviewState, generate_next_question, grade_current_answer
@@ -31,6 +32,10 @@ ROLES = [
 ]
 DIFFICULTIES = ["Easy", "Medium", "Hard"]
 QUESTION_OPTIONS = [3, 5, 10]
+APP_DESCRIPTION = (
+    "AI interview practice app that provides topic notes, MCQ questions, "
+    "mistake explanations, weak-topic study links, and a final performance report."
+)
 TOPIC_PLACEHOLDER = (
     "AWS Bedrock, LangChain, React Hooks, LangGraph state, RAG, "
     "JavaScript closures, SQL joins..."
@@ -57,6 +62,42 @@ def initialize_session_state() -> None:
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def render_page_metadata() -> None:
+    """Set browser metadata for richer link previews where supported."""
+    components.html(
+        f"""
+<script>
+(function () {{
+    const title = "InterviewCoach AI";
+    const description = "{APP_DESCRIPTION}";
+    const head = window.parent.document.head;
+
+    window.parent.document.title = title;
+
+    const entries = [
+        ["name", "description", description],
+        ["property", "og:title", title],
+        ["property", "og:description", description],
+        ["property", "twitter:title", title],
+        ["property", "twitter:description", description]
+    ];
+
+    entries.forEach(([attr, key, content]) => {{
+        let tag = head.querySelector(`meta[${{attr}}="${{key}}"]`);
+        if (!tag) {{
+            tag = window.parent.document.createElement("meta");
+            tag.setAttribute(attr, key);
+            head.appendChild(tag);
+        }}
+        tag.setAttribute("content", content);
+    }});
+}})();
+</script>
+        """,
+        height=0,
+    )
 
 
 def new_interview_state(
@@ -598,6 +639,7 @@ def main() -> None:
     initialize_session_state()
     initialize_onboarding_state()
     apply_styles()
+    render_page_metadata()
     render_onboarding_persistence_bridge()
 
     render_header()
