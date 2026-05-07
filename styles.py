@@ -24,7 +24,6 @@ def apply_styles() -> None:
     --ic-input-bg: #ffffff;
     --ic-input-border: rgba(255, 82, 82, 0.5);
     --ic-placeholder: rgba(55, 65, 81, 0.75);
-    --ic-helper-text: #7f1d1d;
     --ic-accent: #ff4b4b;
     --ic-accent-hover: #e83e3e;
 }
@@ -127,20 +126,10 @@ def apply_styles() -> None:
     overflow-wrap: anywhere;
 }
 
-.topic-helper {
-    border-left: 3px solid var(--ic-accent);
-    color: var(--ic-helper-text);
-    font-size: 0.88rem;
-    font-weight: 650;
-    line-height: 1.35;
-    margin: 0.42rem 0 0.3rem 0;
-    padding: 0.2rem 0 0.2rem 0.55rem;
-}
-
 [data-testid="stTextInput"] input {
     border: 1px solid var(--ic-input-border) !important;
     background: var(--ic-input-bg) !important;
-    color: var(--ic-text) !important;
+    color: #111827 !important;
     caret-color: #111827 !important;
     box-shadow: 0 0 0 1px rgba(255, 82, 82, 0.06);
 }
@@ -225,10 +214,9 @@ iframe[title="streamlit.components.v1.html"] {
         --ic-tour-bg: rgba(120, 53, 15, 0.55);
         --ic-tour-border: rgba(251, 191, 36, 0.65);
         --ic-tour-text: #fde68a;
-        --ic-input-bg: rgba(15, 23, 42, 0.86);
+        --ic-input-bg: #ffffff;
         --ic-input-border: rgba(255, 82, 82, 0.58);
-        --ic-placeholder: rgba(226, 232, 240, 0.78);
-        --ic-helper-text: #fecaca;
+        --ic-placeholder: rgba(55, 65, 81, 0.72);
     }
 }
 
@@ -247,10 +235,9 @@ body[data-theme="dark"] .stApp,
     --ic-tour-bg: rgba(120, 53, 15, 0.55);
     --ic-tour-border: rgba(251, 191, 36, 0.65);
     --ic-tour-text: #fde68a;
-    --ic-input-bg: rgba(15, 23, 42, 0.86);
+    --ic-input-bg: #ffffff;
     --ic-input-border: rgba(255, 82, 82, 0.58);
-    --ic-placeholder: rgba(226, 232, 240, 0.78);
-    --ic-helper-text: #fecaca;
+    --ic-placeholder: rgba(55, 65, 81, 0.72);
 }
 
 @media (min-width: 769px) {

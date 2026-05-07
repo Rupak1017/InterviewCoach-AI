@@ -37,8 +37,7 @@ APP_DESCRIPTION = (
     "mistake explanations, weak-topic study links, and a final performance report."
 )
 TOPIC_PLACEHOLDER = (
-    "AWS Bedrock, LangChain, React Hooks, LangGraph state, RAG, "
-    "JavaScript closures, SQL joins..."
+    "Type a topic, e.g. AWS Bedrock, LangChain, React Hooks, RAG..."
 )
 
 
@@ -339,10 +338,6 @@ def render_home_setup() -> None:
                 selected_topic = st.text_input(
                     "Pick any topic",
                     placeholder=TOPIC_PLACEHOLDER,
-                )
-                st.markdown(
-                    '<div class="topic-helper">Required topic</div>',
-                    unsafe_allow_html=True,
                 )
 
             col1, col2 = st.columns(2)
