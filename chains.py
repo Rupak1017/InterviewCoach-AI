@@ -1,8 +1,9 @@
-"""LangChain Gemini chains with a deterministic mock fallback."""
+"""LangChain Gemini chains with deterministic mock fallbacks."""
 
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 from dotenv import load_dotenv
@@ -15,14 +16,19 @@ from middleware import (
     no_fake_experience_guard,
     validate_score,
 )
-from models import FinalReport, GradeOutput, QuestionOutput
-from prompts import ANSWER_GRADING_PROMPT, FINAL_REPORT_PROMPT, QUESTION_GENERATION_PROMPT
+from models import FinalReport, GradeOutput, PrepSource, QuestionOutput, QuickPrep
+from prompts import (
+    ANSWER_GRADING_PROMPT,
+    FINAL_REPORT_PROMPT,
+    QUESTION_GENERATION_PROMPT,
+    QUICK_PREP_PROMPT,
+)
 from tools import (
-    ROLE_TOPICS,
     calculate_average_score,
-    choose_difficulty_adjustment,
-    create_study_plan,
+    choose_subtopic,
+    fallback_mcq_question,
     get_weak_areas,
+    is_duplicate_question,
 )
 
 
@@ -38,7 +44,6 @@ PLACEHOLDER_KEYS = {
 def _clean_api_key(value: str | None) -> str | None:
     if not value:
         return None
-
     stripped = value.strip()
     if not stripped or stripped in PLACEHOLDER_KEYS:
         return None
@@ -73,224 +78,268 @@ def get_llm() -> ChatGoogleGenerativeAI | None:
     return _LLM
 
 
-MOCK_QUESTIONS: dict[str, dict[str, tuple[str, list[str]]]] = {
-    "AI Engineer Intern": {
-        "tool calling": (
-            "What is tool calling in an AI agent, and why is it useful?",
-            [
-                "model can call functions",
-                "tools extend model capability",
-                "tool results are returned to the model",
-                "useful for search, calculation, databases, APIs",
-            ],
-        ),
-        "LangChain": (
-            "How does LangChain help developers build LLM applications?",
-            [
-                "connects prompts, models, and tools",
-                "supports chains and structured workflows",
-                "integrates with retrievers and external services",
-            ],
-        ),
-        "RAG": (
-            "What problem does retrieval augmented generation solve?",
-            [
-                "retrieves relevant external context",
-                "reduces unsupported answers",
-                "combines search results with model generation",
-            ],
-        ),
-    },
-    "Frontend Developer": {
-        "React": (
-            "What is the difference between state and props in React?",
-            [
-                "props are passed from parent",
-                "state is managed inside component",
-                "state changes trigger re-render",
-            ],
-        ),
-        "accessibility": (
-            "How would you make a form more accessible?",
-            [
-                "use labels connected to inputs",
-                "support keyboard navigation",
-                "show clear validation messages",
-                "use semantic HTML",
-            ],
-        ),
-    },
-    "Backend Developer": {
-        "REST APIs": (
-            "What happens when a client sends a request to a REST API endpoint?",
-            [
-                "request reaches server",
-                "route/controller handles it",
-                "business logic runs",
-                "database may be queried",
-                "response is returned",
-            ],
-        ),
-        "authentication": (
-            "What is the difference between authentication and authorization?",
-            [
-                "authentication verifies identity",
-                "authorization checks permissions",
-                "both protect application resources",
-            ],
-        ),
-    },
-    "Data Analyst": {
-        "SQL": (
-            "What is the difference between WHERE and HAVING in SQL?",
-            [
-                "WHERE filters rows before grouping",
-                "HAVING filters groups after aggregation",
-            ],
-        ),
-        "data cleaning": (
-            "How would you handle missing values in a dataset?",
-            [
-                "inspect why values are missing",
-                "decide whether to remove or impute",
-                "document the decision",
-                "check impact on analysis",
-            ],
-        ),
-    },
-}
+def _prep_sources(sources: list[dict[str, Any]] | list[PrepSource], limit: int = 4) -> list[PrepSource]:
+    prepared: list[PrepSource] = []
+    for source in sources[:limit]:
+        if isinstance(source, PrepSource):
+            prepared.append(source)
+        else:
+            prepared.append(
+                PrepSource(
+                    title=source.get("title", "Study source"),
+                    url=source.get("url", ""),
+                    snippet=source.get("snippet", ""),
+                )
+            )
+    return prepared
 
 
-def _fallback_question(role: str, topic: str, difficulty: str) -> QuestionOutput:
-    role_questions = MOCK_QUESTIONS.get(role, {})
-    if topic in role_questions:
-        question, expected_points = role_questions[topic]
-    else:
-        question = f"Can you explain a core {topic} concept for a {role} interview?"
-        expected_points = [
-            "define the concept clearly",
-            "explain why it matters",
-            "give a practical example",
-        ]
+def _source_snippets(sources: list[dict[str, Any]] | list[PrepSource]) -> str:
+    lines = []
+    for source in _prep_sources(sources, limit=5):
+        lines.append(f"- {source.title}: {source.snippet} ({source.url})")
+    return "\n".join(lines) if lines else "No sources available."
 
-    return QuestionOutput(
-        question=question,
-        topic=topic,
-        difficulty=difficulty,
-        expected_points=expected_points,
+
+def _mock_quick_prep(role: str, topic: str, difficulty: str, sources: list[dict[str, Any]]) -> QuickPrep:
+    return QuickPrep(
+        overview=(
+            f"For a {role} interview, {topic} is worth understanding at a practical level. "
+            f"At {difficulty} difficulty, focus on explaining the idea clearly, naming the tradeoff, "
+            "and connecting it to a small example."
+        ),
+        key_points=[
+            f"Know the core definition of {topic}.",
+            "Be ready to explain when you would use it and what can go wrong.",
+        ],
+        common_mistake="Giving only a memorized definition without explaining the practical impact.",
+        sources=_prep_sources(sources),
     )
 
 
-def _mock_question(state: dict[str, Any]) -> QuestionOutput:
-    role = state.get("role", "AI Engineer Intern")
-    topic = state.get("target_topic") or state.get("next_topic") or ""
+def generate_quick_prep_chain(state: dict[str, Any]) -> QuickPrep:
+    """Generate a short prep card for the current topic."""
+    role = state.get("role", "AI Engineer")
+    topic = state.get("current_topic") or state.get("selected_topic") or "fundamentals"
     difficulty = state.get("difficulty", "Easy")
-    topics = ROLE_TOPICS.get(role, ROLE_TOPICS["AI Engineer Intern"])
+    sources = state.get("study_sources", [])
 
-    if not topic:
-        index = min(state.get("question_count", 0), len(topics) - 1)
-        topic = topics[index]
+    if is_mock_mode():
+        return _mock_quick_prep(role, topic, difficulty, sources)
 
-    question = _fallback_question(role, topic, difficulty)
-    if question.question in state.get("asked_questions", []):
-        next_index = (topics.index(question.topic) + 1) % len(topics) if question.topic in topics else 0
-        question = _fallback_question(role, topics[next_index], difficulty)
+    llm = get_llm()
+    if llm is None:
+        return _mock_quick_prep(role, topic, difficulty, sources)
+
+    prompt = ChatPromptTemplate.from_template(QUICK_PREP_PROMPT)
+    chain = prompt | llm.with_structured_output(QuickPrep)
+
+    try:
+        prep = chain.invoke(
+            {
+                "role": role,
+                "topic": topic,
+                "difficulty": difficulty,
+                "source_snippets": _source_snippets(sources),
+            }
+        )
+        prep.sources = _prep_sources(sources)
+        return prep
+    except Exception as error:
+        print(f"[chains] Gemini quick prep failed; using mock fallback. {error}")
+        return _mock_quick_prep(role, topic, difficulty, sources)
+
+
+def _mock_question(state: dict[str, Any]) -> QuestionOutput:
+    role = state.get("role", "AI Engineer")
+    topic = state.get("current_topic") or state.get("selected_topic") or "fundamentals"
+    difficulty = state.get("difficulty", "Easy")
+    asked_questions = state.get("asked_questions", [])
+    subtopic = state.get("current_subtopic") or choose_subtopic(
+        topic,
+        state.get("question_count", 0),
+        asked_questions,
+    )
+    return fallback_mcq_question(role, topic, difficulty, subtopic, asked_questions)
+
+
+def _validate_question_output(question: QuestionOutput, state: dict[str, Any]) -> QuestionOutput:
+    choices = [choice.strip() for choice in question.choices if choice and choice.strip()]
+    choices = list(dict.fromkeys(choices))
+    if len(choices) != 3 or question.correct_answer not in choices:
+        return _mock_question(state)
+
+    question.choices = choices
     return question
 
 
 def generate_question_chain(state: dict[str, Any]) -> QuestionOutput:
-    """Generate one role-specific interview question."""
+    """Generate one role-specific MCQ interview question."""
+    started = time.perf_counter()
+    topic = state.get("current_topic") or "fundamentals"
+    asked_questions = state.get("asked_questions", [])
+    subtopic = state.get("current_subtopic") or choose_subtopic(
+        topic,
+        state.get("question_count", 0),
+        asked_questions,
+    )
+    print("[question-generation] topic:", topic)
+    print("[question-generation] subtopic:", subtopic)
+    print("[question-generation] asked_count:", len(asked_questions))
+
     if is_mock_mode():
-        return _mock_question(state)
+        question = _mock_question({**state, "current_subtopic": subtopic})
+        duplicate = is_duplicate_question(question.question, asked_questions)
+        print("[question-generation] generated:", question.question)
+        print("[question-generation] duplicate:", duplicate)
+        print(f"[timing] Gemini question generation took {time.perf_counter() - started:.2f}s")
+        return question
 
     llm = get_llm()
     if llm is None:
-        return _mock_question(state)
+        question = _mock_question({**state, "current_subtopic": subtopic})
+        print("[question-generation] generated:", question.question)
+        print("[question-generation] duplicate:", is_duplicate_question(question.question, asked_questions))
+        print(f"[timing] Gemini question generation took {time.perf_counter() - started:.2f}s")
+        return question
 
     prompt = ChatPromptTemplate.from_template(QUESTION_GENERATION_PROMPT)
     chain = prompt | llm.with_structured_output(QuestionOutput)
 
     try:
-        return chain.invoke(
+        question = chain.invoke(
             {
-                "role": state.get("role", "AI Engineer Intern"),
+                "role": state.get("role", "AI Engineer"),
+                "topic": topic,
+                "subtopic": subtopic,
                 "difficulty": state.get("difficulty", "Easy"),
-                "topic": state.get("target_topic") or state.get("next_topic") or "fundamentals",
+                "quick_prep": state.get("quick_prep", {}).get("overview", ""),
                 "weak_areas": ", ".join(state.get("weak_areas", [])) or "None yet",
-                "asked_questions": " | ".join(state.get("asked_questions", [])) or "None yet",
-                "difficulty_adjustment": choose_difficulty_adjustment(state.get("scores", [])),
+                "asked_questions": " | ".join(asked_questions) or "None yet",
+                "anti_repeat_note": "First attempt.",
             }
         )
+        question = _validate_question_output(question, {**state, "current_subtopic": subtopic})
+        duplicate = is_duplicate_question(question.question, asked_questions)
+        print("[question-generation] generated:", question.question)
+        print("[question-generation] duplicate:", duplicate)
+        if not duplicate:
+            return question
+
+        question = chain.invoke(
+            {
+                "role": state.get("role", "AI Engineer"),
+                "topic": topic,
+                "subtopic": subtopic,
+                "difficulty": state.get("difficulty", "Easy"),
+                "quick_prep": state.get("quick_prep", {}).get("overview", ""),
+                "weak_areas": ", ".join(state.get("weak_areas", [])) or "None yet",
+                "asked_questions": " | ".join(asked_questions) or "None yet",
+                "anti_repeat_note": (
+                    "The previous attempt was too similar. Use a different subtopic angle, "
+                    "different wording, and a different correct answer focus."
+                ),
+            }
+        )
+        question = _validate_question_output(question, {**state, "current_subtopic": subtopic})
+        duplicate = is_duplicate_question(question.question, asked_questions)
+        print("[question-generation] generated:", question.question)
+        print("[question-generation] duplicate:", duplicate)
+        if duplicate:
+            return fallback_mcq_question(
+                state.get("role", "AI Engineer"),
+                topic,
+                state.get("difficulty", "Easy"),
+                subtopic,
+                asked_questions,
+            )
+        return question
     except Exception as error:
         print(f"[chains] Gemini question generation failed; using mock fallback. {error}")
-        return _mock_question(state)
+        return _mock_question({**state, "current_subtopic": subtopic})
+    finally:
+        print(f"[timing] Gemini question generation took {time.perf_counter() - started:.2f}s")
 
 
-def _point_matches_answer(point: str, answer: str) -> bool:
-    important_words = [
-        word.strip(".,:;()").lower()
-        for word in point.split()
-        if len(word.strip(".,:;()")) > 3
-    ]
-    answer_lower = answer.lower()
-    return any(word in answer_lower for word in important_words)
+def _is_correct_choice(answer: str, correct_answer: str) -> bool:
+    return answer.strip().casefold() == correct_answer.strip().casefold()
 
 
 def _mock_grade(
     question: str,
     answer: str,
+    choices: list[str],
+    correct_answer: str,
     expected_points: list[str],
     role: str,
     difficulty: str,
+    topic: str,
+    sources: list[dict[str, Any]],
 ) -> GradeOutput:
-    matched_points = [point for point in expected_points if _point_matches_answer(point, answer)]
-    missing_points = [point for point in expected_points if point not in matched_points]
-
-    score = 4 + len(matched_points) * 2
-    if len(answer.split()) >= 35:
-        score += 1
-    score = validate_score(score)
-
-    weak_area = missing_points[0] if missing_points else "deeper examples"
+    correct = _is_correct_choice(answer, correct_answer)
+    score = 10 if correct else {"Easy": 4, "Medium": 3, "Hard": 2}.get(difficulty, 3)
+    missing_points = [] if correct else expected_points[:3]
+    weak_area = "" if correct else topic
+    source_models = _prep_sources(sources)
     sample_answer = (
-        f"A strong {role} answer would explain that {question.lower()} "
-        f"In practice, it should mention: {', '.join(expected_points)}."
+        f"The best option is: {correct_answer} It works because it covers "
+        f"{', '.join(expected_points[:3])}."
     )
 
     return GradeOutput(
         score=score,
-        strength="You gave a clear starting point." if matched_points else "You attempted the question honestly.",
+        strength=(
+            "You selected the best option."
+            if correct
+            else "You made a selection and can use the explanation to sharpen the concept."
+        ),
         improvement=(
-            f"Add detail about {missing_points[0]}."
-            if missing_points
-            else "Add a short real project or practice example."
+            "Keep watching for scenario details."
+            if correct
+            else f"Review why the correct option covers {expected_points[0]}."
         ),
         feedback=(
-            "Good start. Your answer covers part of the idea, but it needs a little more precision."
-            if missing_points
-            else "Strong answer. You covered the key points and can improve by adding a concise example."
+            "Correct. Nice read of the concept."
+            if correct
+            else "Not quite. Review the correct option and the key idea behind it."
         ),
         missing_points=missing_points[:3],
         weak_area=weak_area,
+        correct_answer=correct_answer,
         sample_answer=sample_answer,
-        next_topic_suggestion=weak_area,
+        study_next=[
+            f"Review {topic} fundamentals.",
+            "Practice explaining why the correct option is better than the distractors.",
+        ],
+        recommended_links=source_models[:4],
     )
 
 
 def grade_answer_chain(
     question: str,
     answer: str,
+    choices: list[str],
+    correct_answer: str,
     expected_points: list[str],
     role: str,
     difficulty: str,
+    topic: str,
+    sources: list[dict[str, Any]],
 ) -> GradeOutput:
-    """Grade an answer with Gemini structured output or mock logic."""
+    """Grade an MCQ selection with Gemini structured output or mock logic."""
+    started = time.perf_counter()
     if is_mock_mode():
-        return _mock_grade(question, answer, expected_points, role, difficulty)
+        try:
+            return _mock_grade(question, answer, choices, correct_answer, expected_points, role, difficulty, topic, sources)
+        finally:
+            print(f"[timing] Gemini answer grading took {time.perf_counter() - started:.2f}s")
 
     llm = get_llm()
     if llm is None:
-        return _mock_grade(question, answer, expected_points, role, difficulty)
+        try:
+            return _mock_grade(question, answer, choices, correct_answer, expected_points, role, difficulty, topic, sources)
+        finally:
+            print(f"[timing] Gemini answer grading took {time.perf_counter() - started:.2f}s")
 
     prompt = ChatPromptTemplate.from_template(ANSWER_GRADING_PROMPT)
     chain = prompt | llm.with_structured_output(GradeOutput)
@@ -300,19 +349,37 @@ def grade_answer_chain(
             {
                 "role": role,
                 "difficulty": difficulty,
+                "topic": topic,
                 "question": question,
+                "choices": "\n".join(f"- {choice}" for choice in choices),
+                "correct_answer": correct_answer,
                 "expected_points": "\n".join(f"- {point}" for point in expected_points),
                 "answer": answer,
+                "source_snippets": _source_snippets(sources),
             }
         )
+        if _is_correct_choice(answer, correct_answer):
+            grade.score = max(validate_score(grade.score), 8)
+            grade.missing_points = []
+        else:
+            grade.score = min(validate_score(grade.score), 6)
         grade.score = validate_score(grade.score)
-        grade.feedback = constructive_feedback_guard(limit_feedback_length(grade.feedback))
-        grade.feedback = no_fake_experience_guard(grade.feedback)
+        grade.correct_answer = correct_answer
+        grade.feedback = no_fake_experience_guard(
+            constructive_feedback_guard(limit_feedback_length(grade.feedback))
+        )
         grade.sample_answer = no_fake_experience_guard(grade.sample_answer)
+        grade.recommended_links = _prep_sources(sources)
+        if grade.score >= 8:
+            grade.weak_area = ""
+        elif not grade.weak_area:
+            grade.weak_area = topic
         return grade
     except Exception as error:
         print(f"[chains] Gemini answer grading failed; using mock fallback. {error}")
-        return _mock_grade(question, answer, expected_points, role, difficulty)
+        return _mock_grade(question, answer, choices, correct_answer, expected_points, role, difficulty, topic, sources)
+    finally:
+        print(f"[timing] Gemini answer grading took {time.perf_counter() - started:.2f}s")
 
 
 def _readiness_from_average(average_score: float) -> str:
@@ -323,30 +390,42 @@ def _readiness_from_average(average_score: float) -> str:
     return "Needs practice"
 
 
+def _unique_sources(sources: list[dict[str, Any]], limit: int = 5) -> list[PrepSource]:
+    unique: list[PrepSource] = []
+    seen_urls: set[str] = set()
+    for source in _prep_sources(sources, limit=20):
+        if source.url in seen_urls:
+            continue
+        seen_urls.add(source.url)
+        unique.append(source)
+    return unique[:limit]
+
+
 def _mock_final_report(state: dict[str, Any]) -> FinalReport:
     scores = state.get("scores", [])
     average_score = calculate_average_score(scores)
     weak_areas = get_weak_areas(state)[:5]
     strong_areas = list(dict.fromkeys(state.get("strong_areas", [])))[:5] or ["Clear communication"]
-    recommended_topics = create_study_plan(weak_areas, state.get("role", "the role"))[:3]
+    sources = _unique_sources(state.get("study_sources", []), limit=5)
 
     return FinalReport(
         average_score=average_score,
         readiness_level=_readiness_from_average(average_score),
         strong_areas=strong_areas,
         weak_areas=weak_areas or ["No major weak area detected yet"],
-        recommended_topics=recommended_topics,
+        recommended_topics=weak_areas[:3] or [state.get("current_topic", "interview fundamentals")],
+        useful_sources=sources,
         practice_tasks=[
             "Write a 60-second answer for your weakest topic.",
-            "Practice one answer using the STAR structure where relevant.",
-            "Review one project and prepare a concise technical explanation.",
+            "Practice one answer with a definition, example, and tradeoff.",
+            "Review the useful links and rewrite one answer more clearly.",
         ],
-        final_message="Nice work finishing the session. Keep answers specific, honest, and tied to the role.",
+        final_message="Nice work finishing Guided Practice Mode. Keep answers honest, specific, and tied to the role.",
     )
 
 
 def generate_final_report_chain(state: dict[str, Any]) -> FinalReport:
-    """Generate the final interview report."""
+    """Generate the final guided practice report."""
     if is_mock_mode():
         return _mock_final_report(state)
 
@@ -361,7 +440,8 @@ def generate_final_report_chain(state: dict[str, Any]) -> FinalReport:
         average_score = calculate_average_score(state.get("scores", []))
         report = chain.invoke(
             {
-                "role": state.get("role", "AI Engineer Intern"),
+                "role": state.get("role", "AI Engineer"),
+                "selected_topic": state.get("selected_topic", ""),
                 "difficulty": state.get("difficulty", "Easy"),
                 "max_questions": state.get("max_questions", 5),
                 "scores": state.get("scores", []),
@@ -369,10 +449,12 @@ def generate_final_report_chain(state: dict[str, Any]) -> FinalReport:
                 "feedback_history": state.get("feedback_history", []),
                 "strong_areas": state.get("strong_areas", []),
                 "weak_areas": state.get("weak_areas", []),
+                "source_snippets": _source_snippets(state.get("study_sources", [])),
             }
         )
         report.average_score = average_score
         report.final_message = no_fake_experience_guard(report.final_message)
+        report.useful_sources = _unique_sources(state.get("study_sources", []), limit=5)
         return report
     except Exception as error:
         print(f"[chains] Gemini final report failed; using mock fallback. {error}")

@@ -47,6 +47,7 @@ echo.
 echo Next steps for VS Code:
 echo 1. Open the .env file.
 echo 2. Add your Gemini API key to GEMINI_API_KEY or GOOGLE_API_KEY.
-echo 3. Run run.bat from the VS Code terminal.
+echo 3. Optional: add your Tavily API key to TAVILY_API_KEY for real study links.
+echo 4. Run run.bat from the VS Code terminal.
 echo.
 endlocal

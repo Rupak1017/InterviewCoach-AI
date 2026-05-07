@@ -3,12 +3,27 @@
 from pydantic import BaseModel, Field
 
 
+class PrepSource(BaseModel):
+    title: str = Field(description="Source title.")
+    url: str = Field(description="Clickable source URL.")
+    snippet: str = Field(description="Short source summary or search snippet.")
+
+
+class QuickPrep(BaseModel):
+    overview: str = Field(description="Two to four sentence topic overview.")
+    key_points: list[str] = Field(description="Two short points to remember.")
+    common_mistake: str = Field(description="One common mistake to avoid.")
+    sources: list[PrepSource] = Field(description="Useful study sources.")
+
+
 class QuestionOutput(BaseModel):
     question: str = Field(description="One interview question to ask the user.")
     topic: str = Field(description="The main topic tested by the question.")
     difficulty: str = Field(description="The question difficulty.")
+    choices: list[str] = Field(description="Exactly three answer options.")
+    correct_answer: str = Field(description="The exact correct option from choices.")
     expected_points: list[str] = Field(
-        description="Short bullet points that a strong answer should mention."
+        description="Short points that explain why the correct answer is right."
     )
 
 
@@ -19,10 +34,10 @@ class GradeOutput(BaseModel):
     feedback: str = Field(description="Short constructive feedback.")
     missing_points: list[str] = Field(description="Expected points the answer missed.")
     weak_area: str = Field(description="The main weak area to practice next.")
+    correct_answer: str = Field(description="The correct option.")
     sample_answer: str = Field(description="A better sample answer.")
-    next_topic_suggestion: str = Field(
-        description="Suggested topic for the next adaptive interview question."
-    )
+    study_next: list[str] = Field(description="Short topics or actions to study next.")
+    recommended_links: list[PrepSource] = Field(description="Useful study links.")
 
 
 class FinalReport(BaseModel):
@@ -31,5 +46,6 @@ class FinalReport(BaseModel):
     strong_areas: list[str] = Field(description="Topics or skills that looked strong.")
     weak_areas: list[str] = Field(description="Topics or skills that need practice.")
     recommended_topics: list[str] = Field(description="Study topics to review next.")
+    useful_sources: list[PrepSource] = Field(description="Useful sources from the session.")
     practice_tasks: list[str] = Field(description="Three practical practice tasks.")
     final_message: str = Field(description="Friendly closing message.")
