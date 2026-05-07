@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -12,23 +14,28 @@ TOUR_STORAGE_KEY = "interviewcoach_ai_focus_tour_seen"
 TOUR_STEPS = [
     {
         "target": "role",
-        "title": "Step 1: Pick your interview role",
-        "body": "Start in the setup panel by choosing the role you want to practice, such as Frontend Developer, Backend Developer, Data Analyst, or AI Engineer.",
+        "title": "Welcome. Pick a role",
+        "body": "Choose the interview track you want to practice first.",
     },
     {
         "target": "topic",
-        "title": "Step 2: Enter a topic",
-        "body": "Choose a focused topic like AWS Bedrock, LangChain, React Hooks, LangGraph state, RAG, or SQL joins.",
+        "title": "Now pick any topic",
+        "body": "Type the exact topic you want the coach to focus on.",
     },
     {
         "target": "difficulty",
-        "title": "Step 3: Set level and length",
-        "body": "Choose the MCQ difficulty and the number of questions. Start with 3 questions for a quick practice run.",
+        "title": "Choose a level",
+        "body": "Pick how challenging the MCQ questions should feel.",
+    },
+    {
+        "target": "questions",
+        "title": "Choose question count",
+        "body": "Pick 3 for a quick run, or 5 or 10 for a longer practice session.",
     },
     {
         "target": "start",
-        "title": "Step 4: Start and review feedback",
-        "body": "After practice starts, this area shows quick prep notes, one MCQ at a time, feedback after each answer, useful interview links, and your final report.",
+        "title": "Start Guided Practice",
+        "body": "Now start the session. The coach will prepare notes, one MCQ at a time, feedback, links, and a final report.",
     },
 ]
 
@@ -70,9 +77,94 @@ def current_tour_target() -> str | None:
     return TOUR_STEPS[step]["target"]
 
 
-def render_tour_note(target: str, text: str) -> None:
+def can_use_onboarding_target(target: str) -> bool:
+    """Disable non-focused setup controls while the guided journey is active."""
+    current_target = current_tour_target()
+    return current_target is None or current_target == target
+
+
+def _current_step_index() -> int:
+    return min(st.session_state.get("onboarding_step", 0), len(TOUR_STEPS) - 1)
+
+
+def advance_onboarding_step() -> None:
+    step_index = _current_step_index()
+    if step_index >= len(TOUR_STEPS) - 1:
+        mark_onboarding_seen()
+    else:
+        st.session_state.onboarding_step = step_index + 1
+
+
+def go_back_onboarding_step() -> None:
+    st.session_state.onboarding_step = max(0, _current_step_index() - 1)
+
+
+def render_tour_note(target: str, text: str | None = None) -> None:
     if current_tour_target() == target:
-        st.markdown(f'<div class="tour-note">{text}</div>', unsafe_allow_html=True)
+        step_index = _current_step_index()
+        step = TOUR_STEPS[step_index]
+        detail = text or step["body"]
+        st.markdown(
+            f"""
+<div class="tour-note">
+    <strong>{step["title"]}</strong>
+    <p>{detail}</p>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_tour_controls(
+    target: str,
+    can_continue: bool = True,
+    blocked_message: str = "",
+    validate_on_continue: Callable[[], bool] | None = None,
+    validation_message: str = "",
+) -> None:
+    if current_tour_target() != target:
+        return
+
+    step_index = _current_step_index()
+    is_last = step_index == len(TOUR_STEPS) - 1
+    message_key = f"tour_validation_{target}"
+
+    if blocked_message and not can_continue:
+        st.caption(blocked_message)
+    if st.session_state.get(message_key):
+        st.caption(st.session_state[message_key])
+
+    back_col, ok_col, skip_col = st.columns([1, 1.35, 1])
+    with back_col:
+        if st.button(
+            "Back",
+            key=f"tour_back_{target}",
+            disabled=step_index == 0,
+            use_container_width=True,
+        ):
+            go_back_onboarding_step()
+            st.rerun()
+
+    with ok_col:
+        label = "Finish tour" if is_last else "OK, continue"
+        if st.button(
+            label,
+            key=f"tour_ok_{target}",
+            disabled=not can_continue,
+            use_container_width=True,
+        ):
+            if validate_on_continue and not validate_on_continue():
+                st.session_state[message_key] = validation_message
+                st.rerun()
+
+            st.session_state.pop(message_key, None)
+            advance_onboarding_step()
+            st.rerun()
+
+    with skip_col:
+        if st.button("Skip", key=f"tour_skip_{target}", use_container_width=True):
+            mark_onboarding_seen()
+            st.rerun()
 
 
 def render_onboarding_persistence_bridge() -> None:
@@ -122,33 +214,6 @@ html, body {{
     )
 
 
-@st.dialog("Guided onboarding tour")
 def render_onboarding_tour() -> None:
-    step_index = min(st.session_state.get("onboarding_step", 0), len(TOUR_STEPS) - 1)
-    step = TOUR_STEPS[step_index]
-
-    st.caption(f"{step_index + 1} of {len(TOUR_STEPS)}")
-    st.progress((step_index + 1) / len(TOUR_STEPS))
-    st.markdown(f"### {step['title']}")
-    st.write(step["body"])
-    st.caption("Move one step at a time. The setup and practice flow both happen on this main page.")
-
-    back_col, next_col, skip_col = st.columns([1, 1, 1])
-    with back_col:
-        if st.button("Back", disabled=step_index == 0, use_container_width=True):
-            st.session_state.onboarding_step = max(0, step_index - 1)
-            st.rerun()
-
-    with next_col:
-        is_last = step_index == len(TOUR_STEPS) - 1
-        if st.button("Finish" if is_last else "Next", use_container_width=True):
-            if is_last:
-                mark_onboarding_seen()
-            else:
-                st.session_state.onboarding_step = step_index + 1
-            st.rerun()
-
-    with skip_col:
-        if st.button("Skip", use_container_width=True):
-            mark_onboarding_seen()
-            st.rerun()
+    """Legacy hook kept for app compatibility. The tour now renders inline."""
+    return

@@ -26,7 +26,7 @@ Simple project explanation:
 8. Get a score, feedback, study-next items, useful links, and the correct-answer explanation.
 9. Continue until the final report appears.
 
-On the first browser visit, a guided onboarding tour highlights one section at a time on the main setup screen. Use `Next`, `Back`, `Skip`, or `Finish` to move through it. After that, the tour stays hidden for that browser unless you open it again from the setup screen.
+On the first browser visit, a guided setup journey walks through the actual form one section at a time. The current section stays active, the other controls are paused, and the user clicks `OK, continue` after each step. After that, the tour stays hidden for that browser unless you open it again from the setup screen.
 
 ## What LangChain Does
 

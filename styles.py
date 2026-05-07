@@ -116,14 +116,27 @@ def apply_styles() -> None:
 }
 
 .tour-note {
-    padding: 0.65rem;
+    padding: 0.8rem;
     border-radius: 8px;
     border: 1px solid var(--ic-tour-border);
     background: var(--ic-tour-bg);
     color: var(--ic-tour-text);
-    margin: 0.35rem 0 0.75rem 0;
+    margin: 0.35rem 0 0.85rem 0;
     font-size: 0.92rem;
     overflow-wrap: anywhere;
+}
+
+.tour-note strong {
+    display: block;
+    color: inherit;
+    font-size: 1rem;
+    margin-bottom: 0.2rem;
+}
+
+.tour-note p {
+    color: inherit;
+    margin: 0;
+    line-height: 1.42;
 }
 
 [data-testid="stTextInput"] input {
@@ -143,6 +156,20 @@ def apply_styles() -> None:
     border-color: var(--ic-accent) !important;
     caret-color: #111827 !important;
     box-shadow: 0 0 0 3px rgba(255, 82, 82, 0.16) !important;
+}
+
+[data-testid="stTextInput"] input:disabled {
+    background: rgba(148, 163, 184, 0.14) !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    color: rgba(148, 163, 184, 0.78) !important;
+    -webkit-text-fill-color: rgba(148, 163, 184, 0.78) !important;
+    box-shadow: none !important;
+    opacity: 0.82 !important;
+}
+
+[data-testid="stRadio"] label:has(input:disabled) {
+    opacity: 0.45;
+    filter: saturate(0.55);
 }
 
 .stButton > button[kind="primary"] {

@@ -11,12 +11,13 @@ import streamlit.components.v1 as components
 from chains import is_mock_mode
 from graph import InterviewState, generate_next_question, grade_current_answer
 from onboarding import (
+    can_use_onboarding_target,
     current_tour_target,
     initialize_onboarding_state,
     mark_onboarding_seen,
     open_onboarding_tour,
     render_onboarding_persistence_bridge,
-    render_onboarding_tour,
+    render_tour_controls,
     render_tour_note,
 )
 from storage import create_session, ensure_data_file, list_sessions
@@ -314,6 +315,7 @@ def queue_guided_practice(
 
 
 def render_home_setup() -> None:
+    tour_active = st.session_state.get("show_onboarding", False)
     st.markdown('<div class="setup-shell">', unsafe_allow_html=True)
     setup_col, info_col = st.columns([1.75, 1], gap="large")
 
@@ -324,35 +326,59 @@ def render_home_setup() -> None:
             st.caption("Pick a role, choose a topic, set the level, and start.")
 
             with st.container(border=current_tour_target() == "role"):
-                render_tour_note("role", "Choose the role that matches the interview you want to practice.")
+                render_tour_note("role", "Choose the role that matches the interview you want to practice. Then press OK to unlock the next step.")
                 role = st.radio(
                     "Pick a role",
                     ROLES,
                     index=3,
                     horizontal=True,
                     label_visibility="visible",
+                    disabled=not can_use_onboarding_target("role"),
                 )
+                render_tour_controls("role")
 
             with st.container(border=current_tour_target() == "topic"):
-                render_tour_note("topic", "Make the session specific. Good examples: AWS Bedrock, LangChain, React Hooks, LangGraph state.")
+                render_tour_note("topic", "Make the session specific by typing one topic. Then press OK to continue.")
                 selected_topic = st.text_input(
                     "Pick any topic",
                     placeholder=TOPIC_PLACEHOLDER,
+                    key="setup_topic_input",
+                    disabled=not can_use_onboarding_target("topic"),
+                )
+                render_tour_controls(
+                    "topic",
+                    validate_on_continue=lambda: bool(
+                        st.session_state.get("setup_topic_input", "").strip()
+                    ),
+                    validation_message="Type a topic to continue.",
                 )
 
             col1, col2 = st.columns(2)
             with col1:
                 with st.container(border=current_tour_target() == "difficulty"):
-                    render_tour_note("difficulty", "Choose how challenging the MCQs should be.")
-                    difficulty = st.radio("Level", DIFFICULTIES, horizontal=True)
+                    render_tour_note("difficulty", "Choose how challenging the MCQs should be. Then press OK.")
+                    difficulty = st.radio(
+                        "Level",
+                        DIFFICULTIES,
+                        horizontal=True,
+                        disabled=not can_use_onboarding_target("difficulty"),
+                    )
+                    render_tour_controls("difficulty")
 
             with col2:
                 with st.container(border=current_tour_target() == "questions"):
-                    render_tour_note("questions", "Choose a quick 3-question run or a longer practice session.")
-                    max_questions = st.radio("Questions", QUESTION_OPTIONS, index=1, horizontal=True)
+                    render_tour_note("questions", "Choose a quick 3-question run or a longer practice session. Then press OK.")
+                    max_questions = st.radio(
+                        "Questions",
+                        QUESTION_OPTIONS,
+                        index=1,
+                        horizontal=True,
+                        disabled=not can_use_onboarding_target("questions"),
+                    )
+                    render_tour_controls("questions")
 
             with st.container(border=current_tour_target() == "start"):
-                render_tour_note("start", "Click Start when the setup is ready.")
+                render_tour_note("start", "Click Start Guided Practice. The coach will take you into the first question.")
                 start_label = (
                     "Preparing practice..."
                     if st.session_state.get("start_button_clicked", False)
@@ -361,7 +387,10 @@ def render_home_setup() -> None:
                 if st.button(
                     start_label,
                     use_container_width=True,
-                    disabled=st.session_state.get("start_button_clicked", False),
+                    disabled=(
+                        st.session_state.get("start_button_clicked", False)
+                        or not can_use_onboarding_target("start")
+                    ),
                     type="primary",
                 ):
                     if not selected_topic.strip():
@@ -389,7 +418,7 @@ def render_home_setup() -> None:
             st.markdown("- Instant scoring and feedback")
             st.markdown("- Useful links and a final report")
 
-        show_saved_sessions = st.checkbox("Show saved sessions")
+        show_saved_sessions = st.checkbox("Show saved sessions", disabled=tour_active)
         if show_saved_sessions:
             render_saved_sessions()
 
@@ -398,7 +427,7 @@ def render_home_setup() -> None:
             st.caption("Bedrock mode" if not is_mock_mode() else "Mock Gemini mode")
             if is_tavily_mock_mode():
                 st.caption("Mock study links")
-            if st.button("Show onboarding tour", use_container_width=True):
+            if st.button("Show onboarding tour", use_container_width=True, disabled=tour_active):
                 open_onboarding_tour()
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -717,9 +746,6 @@ def main() -> None:
                     handle_answer_submission(state)
         with side_col:
             render_side_panel(state)
-
-    if st.session_state.get("show_onboarding", False):
-        render_onboarding_tour()
 
 
 if __name__ == "__main__":
