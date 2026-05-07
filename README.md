@@ -5,10 +5,10 @@ AI interview practice app that provides topic notes, MCQ questions, mistake expl
 The user selects a role, enters a topic, chooses difficulty and question count, then practices one 3-option MCQ interview question at a time.
 
 Supported roles:
+- AI Engineer
 - Frontend Developer
 - Backend Developer
 - Data Analyst
-- AI Engineer
 
 Simple project explanation:
 

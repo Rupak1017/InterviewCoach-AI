@@ -23,10 +23,10 @@ from tools import calculate_average_score, is_tavily_mock_mode, search_study_sou
 
 
 ROLES = [
+    "AI Engineer",
     "Frontend Developer",
     "Backend Developer",
     "Data Analyst",
-    "AI Engineer",
 ]
 DIFFICULTIES = ["Easy", "Medium", "Hard"]
 QUESTION_OPTIONS = [3, 5, 10]
@@ -434,7 +434,7 @@ def render_home_setup() -> None:
                 role = st.radio(
                     "Pick a role",
                     ROLES,
-                    index=3,
+                    index=0,
                     horizontal=True,
                     label_visibility="visible",
                     disabled=not can_use_onboarding_target("role"),
