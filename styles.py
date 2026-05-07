@@ -27,6 +27,7 @@ def apply_styles() -> None:
     font-size: 2.35rem;
     font-weight: 800;
     margin-bottom: 0rem;
+    line-height: 1.08;
 }
 
 .subtitle {
@@ -34,6 +35,11 @@ def apply_styles() -> None:
     color: var(--ic-text);
     opacity: 0.68;
     margin-bottom: 1.2rem;
+}
+
+.setup-shell {
+    max-width: 1180px;
+    margin: 0 auto;
 }
 
 .info-card, .feedback-card {
@@ -158,20 +164,55 @@ body[data-theme="dark"] .stApp,
     --ic-tour-text: #fde68a;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 769px) {
     .block-container {
-        padding: 1rem 0.85rem 2rem 0.85rem !important;
+        max-width: 1240px;
+        padding-top: 5.25rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+
+    .app-header {
+        max-width: 1180px;
+        margin: 0 auto 2.25rem auto;
     }
 
     .main-title {
-        font-size: 1.8rem;
-        line-height: 1.12;
+        font-size: clamp(2.35rem, 3vw, 3.15rem);
     }
 
     .subtitle {
-        font-size: 0.95rem;
+        max-width: 720px;
+    }
+
+    .setup-shell [data-testid="stVerticalBlock"] {
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .block-container {
+        padding: 2.25rem 0.85rem 2rem 0.85rem !important;
+    }
+
+    .app-header {
+        padding-top: 0.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .main-title {
+        font-size: clamp(1.42rem, 6vw, 1.62rem);
+        line-height: 1.1;
+        max-width: 100%;
+        white-space: nowrap;
+        text-align: left;
+    }
+
+    .subtitle {
+        font-size: 0.88rem;
         line-height: 1.35;
         margin-bottom: 0.85rem;
+        max-width: 100%;
     }
 
     .info-card, .feedback-card {
@@ -225,14 +266,6 @@ body[data-theme="dark"] .stApp,
         max-width: 100%;
     }
 
-    section[data-testid="stSidebar"] {
-        max-width: 92vw !important;
-    }
-
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        gap: 0.55rem;
-    }
-
     div[role="dialog"] {
         width: calc(100vw - 1.5rem) !important;
         max-width: calc(100vw - 1.5rem) !important;
@@ -241,7 +274,7 @@ body[data-theme="dark"] .stApp,
 
 @media (max-width: 480px) {
     .main-title {
-        font-size: 1.65rem;
+        font-size: clamp(1.32rem, 5.8vw, 1.48rem);
     }
 
     .subtitle {

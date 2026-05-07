@@ -12,8 +12,8 @@ TOUR_STORAGE_KEY = "interviewcoach_ai_focus_tour_seen"
 TOUR_STEPS = [
     {
         "target": "role",
-        "title": "Step 1: Open the sidebar and choose a role",
-        "body": "Use the sidebar button in the top-left corner, then pick the interview track you want to practice.",
+        "title": "Step 1: Choose a role",
+        "body": "Pick the interview track you want to practice. The question style adapts to this role.",
     },
     {
         "target": "topic",
@@ -141,7 +141,7 @@ def render_onboarding_tour() -> None:
     st.progress((step_index + 1) / len(TOUR_STEPS))
     st.markdown(f"### {step['title']}")
     st.write(step["body"])
-    st.caption("Move one step at a time. Open the sidebar when you are ready to set up practice.")
+    st.caption("Move one step at a time. The highlighted setup area is on the main screen.")
 
     back_col, next_col, skip_col = st.columns([1, 1, 1])
     with back_col:

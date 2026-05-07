@@ -185,110 +185,104 @@ def render_startup_status(config: dict[str, Any]) -> None:
 
 
 def render_header() -> None:
-    st.markdown('<div class="main-title">InterviewCoach AI</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="subtitle">Guided Practice Mode for interview prep, answers, feedback, and study links.</div>',
+        """
+<div class="app-header">
+    <div class="main-title">InterviewCoach AI</div>
+    <div class="subtitle">Guided Practice Mode for interview prep, answers, feedback, and study links.</div>
+</div>
+        """,
         unsafe_allow_html=True,
     )
 
 
-def render_sidebar() -> bool:
-    with st.sidebar:
-        st.header("Focus Tour")
-        st.caption("Follow these steps from top to bottom.")
+def queue_guided_practice(
+    role: str,
+    selected_topic: str,
+    difficulty: str,
+    max_questions: int,
+) -> None:
+    mark_onboarding_seen()
+    st.session_state.pending_practice = {
+        "role": role,
+        "selected_topic": selected_topic.strip(),
+        "difficulty": difficulty,
+        "max_questions": max_questions,
+    }
+    st.session_state.active = False
+    st.session_state.messages = []
+    st.session_state.interview_state = None
+    st.session_state.last_error = ""
+    st.session_state.is_processing = False
 
-        with st.container(border=current_tour_target() == "role"):
-            st.markdown("**1. Select a role**")
-            render_tour_note("role", "Start here. Choose the role that matches the interview you want to practice.")
-            role = st.radio("Role", ROLES, index=3)
 
-        with st.container(border=current_tour_target() == "topic"):
-            st.markdown("**2. Enter a topic**")
-            render_tour_note("topic", "Make the session specific. Good examples: AWS Bedrock, LangChain, React Hooks, LangGraph state.")
-            selected_topic = st.text_input(
-                "Topic",
-                placeholder=TOPIC_PLACEHOLDER,
-            )
+def render_home_setup() -> None:
+    st.markdown('<div class="setup-shell">', unsafe_allow_html=True)
+    setup_col, info_col = st.columns([1.75, 1], gap="large")
 
-        with st.container(border=current_tour_target() == "difficulty"):
-            st.markdown("**3. Pick difficulty**")
-            render_tour_note("difficulty", "Choose the level of challenge before the agent prepares the question.")
-            difficulty = st.radio("Difficulty", DIFFICULTIES, horizontal=True)
+    with setup_col:
+        with st.container(border=True):
+            render_tour_note("main", "Use this setup panel to start a focused MCQ practice session.")
+            st.markdown("### Set up Guided Practice")
+            st.caption("Pick a role, choose a topic, set the level, and start.")
 
-        with st.container(border=current_tour_target() == "questions"):
-            st.markdown("**4. Choose question count**")
-            render_tour_note("questions", "Choose a quick 3-question run or a longer practice session.")
-            max_questions = st.radio("Questions", QUESTION_OPTIONS, index=1, horizontal=True)
+            with st.container(border=current_tour_target() == "role"):
+                render_tour_note("role", "Choose the role that matches the interview you want to practice.")
+                role = st.radio(
+                    "Pick a role",
+                    ROLES,
+                    index=3,
+                    horizontal=True,
+                    label_visibility="visible",
+                )
 
-        st.divider()
-        with st.container(border=current_tour_target() == "start"):
-            render_tour_note("start", "Click Start when the setup is ready. You can skip or finish the tour first if you want.")
-            if st.button("Start Guided Practice", use_container_width=True):
-                if not selected_topic.strip():
-                    st.warning("Please enter a topic before starting.")
-                else:
-                    mark_onboarding_seen()
-                    st.session_state.pending_practice = {
-                        "role": role,
-                        "selected_topic": selected_topic.strip(),
-                        "difficulty": difficulty,
-                        "max_questions": max_questions,
-                    }
-                    st.session_state.active = False
-                    st.session_state.messages = []
-                    st.session_state.interview_state = None
-                    st.session_state.last_error = ""
-                    st.session_state.is_processing = False
-            if st.button("Reset Practice", use_container_width=True):
-                reset_active_interview()
+            with st.container(border=current_tour_target() == "topic"):
+                render_tour_note("topic", "Make the session specific. Good examples: AWS Bedrock, LangChain, React Hooks, LangGraph state.")
+                selected_topic = st.text_input(
+                    "Pick a topic",
+                    placeholder=TOPIC_PLACEHOLDER,
+                )
 
-        st.divider()
-        st.header("Progress")
-        state = st.session_state.get("interview_state") or {}
-        answered = state.get("question_count", 0)
-        total = state.get("max_questions", max_questions)
-        progress = min(answered / total, 1.0) if total else 0.0
-        st.progress(progress)
-        st.caption(f"{answered} of {total} questions answered" if st.session_state.active else "No active practice")
+            col1, col2 = st.columns(2)
+            with col1:
+                with st.container(border=current_tour_target() == "difficulty"):
+                    render_tour_note("difficulty", "Choose how challenging the MCQs should be.")
+                    difficulty = st.radio("Level", DIFFICULTIES, horizontal=True)
 
-        scores = state.get("scores", [])
-        st.metric("Average Score", f"{calculate_average_score(scores)}/10" if scores else "-")
-        st.metric("Questions Answered", answered)
+            with col2:
+                with st.container(border=current_tour_target() == "questions"):
+                    render_tour_note("questions", "Choose a quick 3-question run or a longer practice session.")
+                    max_questions = st.radio("Questions", QUESTION_OPTIONS, index=1, horizontal=True)
 
-        st.divider()
-        st.header("Info")
-        st.caption("Gemini mode" if not is_mock_mode() else "Mock Gemini mode")
-        if is_tavily_mock_mode():
-            st.caption("Using mock study links because TAVILY_API_KEY was not found.")
-        if st.button("Show onboarding tour", use_container_width=True):
-            open_onboarding_tour()
+            with st.container(border=current_tour_target() == "start"):
+                render_tour_note("start", "Click Start when the setup is ready.")
+                if st.button("Start Guided Practice", use_container_width=True):
+                    if not selected_topic.strip():
+                        st.warning("Please enter a topic before starting.")
+                    else:
+                        queue_guided_practice(role, selected_topic, difficulty, max_questions)
+
+    with info_col:
+        with st.container(border=True):
+            st.markdown("### What you will get")
+            st.markdown("- Quick prep before each question")
+            st.markdown("- Three MCQ choices per question")
+            st.markdown("- Instant scoring and feedback")
+            st.markdown("- Useful links and a final report")
+
         show_saved_sessions = st.checkbox("Show saved sessions")
+        if show_saved_sessions:
+            render_saved_sessions()
 
-    return show_saved_sessions
+        with st.container(border=True):
+            st.markdown("**App mode**")
+            st.caption("Gemini mode" if not is_mock_mode() else "Mock Gemini mode")
+            if is_tavily_mock_mode():
+                st.caption("Mock study links")
+            if st.button("Show onboarding tour", use_container_width=True):
+                open_onboarding_tour()
 
-
-def render_welcome() -> None:
-    with st.container(border=current_tour_target() == "main"):
-        render_tour_note("main", "After setup, this main area becomes your practice workspace.")
-        st.markdown(
-            """
-<div class="info-card">
-<strong>Focus Tour</strong><br>
-Open the sidebar from the top-left button, then select a role, enter a topic, choose difficulty, choose question count, and start Guided Practice.
-</div>
-        """,
-            unsafe_allow_html=True,
-        )
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.markdown("**1. Role**  \nPick the interview track.")
-        with col2:
-            st.markdown("**2. Topic**  \nTry AWS Bedrock, LangChain, React Hooks, or LangGraph.")
-        with col3:
-            st.markdown("**3. Level**  \nChoose Easy, Medium, or Hard.")
-        with col4:
-            st.markdown("**4. Start**  \nPick 3, 5, or 10 questions.")
-        st.info("Open the sidebar to set up your first session.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_source_links(sources: list[dict[str, Any]], limit: int = 4) -> None:
@@ -553,7 +547,6 @@ def main() -> None:
         page_title="InterviewCoach AI",
         page_icon="IC",
         layout="wide",
-        initial_sidebar_state="collapsed",
     )
     ensure_data_file()
     initialize_session_state()
@@ -562,7 +555,6 @@ def main() -> None:
     render_onboarding_persistence_bridge()
 
     render_header()
-    show_saved_sessions = render_sidebar()
 
     if is_mock_mode():
         st.warning("Running in mock mode because no Gemini API key was found.")
@@ -577,7 +569,7 @@ def main() -> None:
 
     state = st.session_state.get("interview_state")
     if not st.session_state.active or not state:
-        render_welcome()
+        render_home_setup()
     else:
         main_col, side_col = st.columns([2, 1], gap="large")
         with main_col:
@@ -591,9 +583,6 @@ def main() -> None:
                     handle_answer_submission(state)
         with side_col:
             render_side_panel(state)
-
-    if show_saved_sessions:
-        render_saved_sessions()
 
     if st.session_state.get("show_onboarding", False):
         render_onboarding_tour()
