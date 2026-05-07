@@ -10,7 +10,7 @@ from storage import save_answer
 
 
 ROLE_TOPICS = {
-    "AI Engineer Intern": [
+    "AI Engineer": [
         "Python",
         "APIs",
         "LangChain",
@@ -65,10 +65,10 @@ def choose_topic(
     next_topic: str | None,
 ) -> str:
     """Choose the next topic, prioritizing adaptive weak areas."""
-    topics = ROLE_TOPICS.get(role, ROLE_TOPICS["AI Engineer Intern"])
+    topics = ROLE_TOPICS.get(role, ROLE_TOPICS["AI Engineer"])
     normalized_topics = {topic.lower(): topic for topic in topics}
     starter_topics = {
-        "AI Engineer Intern": "tool calling",
+        "AI Engineer": "tool calling",
         "Frontend Developer": "React",
         "Backend Developer": "REST APIs",
         "Data Analyst": "SQL",

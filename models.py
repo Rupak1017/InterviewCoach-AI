@@ -7,8 +7,10 @@ class QuestionOutput(BaseModel):
     question: str = Field(description="One interview question to ask the user.")
     topic: str = Field(description="The main topic tested by the question.")
     difficulty: str = Field(description="The question difficulty.")
+    choices: list[str] = Field(description="Four multiple-choice answer options.")
+    correct_answer: str = Field(description="The exact correct option from choices.")
     expected_points: list[str] = Field(
-        description="Short bullet points that a strong answer should mention."
+        description="Short points explaining why the correct option is right."
     )
 
 
@@ -19,7 +21,8 @@ class GradeOutput(BaseModel):
     feedback: str = Field(description="Short constructive feedback.")
     missing_points: list[str] = Field(description="Expected points the answer missed.")
     weak_area: str = Field(description="The main weak area to practice next.")
-    sample_answer: str = Field(description="A better sample answer.")
+    correct_answer: str = Field(description="The correct MCQ answer.")
+    sample_answer: str = Field(description="A short explanation of the correct answer.")
     next_topic_suggestion: str = Field(
         description="Suggested topic for the next adaptive interview question."
     )

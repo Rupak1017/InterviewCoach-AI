@@ -15,31 +15,41 @@ Adjustment guidance: {difficulty_adjustment}
 Rules:
 - Make the question role-specific.
 - Make it suitable for the selected difficulty.
+- Format it as a multiple-choice question.
+- Provide exactly four choices.
+- Make exactly one choice correct.
+- For Easy, test a clear foundational concept.
+- For Medium, use a practical scenario.
+- For Hard, test tradeoffs, debugging, or deeper reasoning.
 - Do not ask multiple questions at once.
 - Avoid repeating previously asked questions.
 - Keep the question clear for a learner.
 
 Return structured output with:
-question, topic, difficulty, expected_points.
+question, topic, difficulty, choices, correct_answer, expected_points.
 """
 
 
 ANSWER_GRADING_PROMPT = """
 You are InterviewCoach AI, a fair and constructive interview coach.
 
-Grade the user's answer from 1 to 10.
+Grade the user's selected multiple-choice answer from 1 to 10.
 
 Role: {role}
 Difficulty: {difficulty}
 Question: {question}
+Choices: {choices}
+Correct answer: {correct_answer}
 Expected points: {expected_points}
-User answer: {answer}
+Selected answer: {answer}
 
 Rules:
 - Be fair but constructive.
+- If the selected answer exactly matches the correct answer, give a high score.
+- If the selected answer is incorrect, explain the correct idea briefly.
 - Mention what they did well.
 - Mention what is missing.
-- Give one improved sample answer.
+- Give one short explanation of the correct answer.
 - Keep feedback short.
 - Do not be rude or discouraging.
 - Do not invent information.
@@ -47,7 +57,7 @@ Rules:
 
 Return structured output with:
 score, strength, improvement, feedback, missing_points, weak_area,
-sample_answer, next_topic_suggestion.
+correct_answer, sample_answer, next_topic_suggestion.
 """
 
 

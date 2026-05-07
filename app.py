@@ -9,7 +9,6 @@ import streamlit as st
 
 from chains import is_mock_mode
 from graph import InterviewState, generate_next_question, grade_current_answer
-from middleware import block_empty_answer
 from storage import create_session, ensure_data_file, list_sessions
 from tools import calculate_average_score
 
@@ -18,7 +17,7 @@ ROLES = [
     "Frontend Developer",
     "Backend Developer",
     "Data Analyst",
-    "AI Engineer Intern",
+    "AI Engineer",
 ]
 DIFFICULTIES = ["Easy", "Medium", "Hard"]
 QUESTION_OPTIONS = [3, 5, 10]
@@ -90,6 +89,8 @@ def new_interview_state(role: str, difficulty: str, max_questions: int) -> Inter
         "question_count": 0,
         "current_question": "",
         "current_topic": "",
+        "choices": [],
+        "correct_answer": "",
         "expected_points": [],
         "user_answer": "",
         "scores": [],
@@ -110,7 +111,14 @@ def question_message(state: InterviewState) -> str:
     max_questions = state.get("max_questions", 5)
     role = state.get("role", "Interview")
     question = state.get("current_question", "")
-    return f"**Question {question_number} of {max_questions} - {role}**\n\n{question}"
+    choices = state.get("choices", [])
+    choice_text = "\n".join(f"{index}. {choice}" for index, choice in enumerate(choices, start=1))
+    return (
+        f"**Question {question_number} of {max_questions} - {role}**\n\n"
+        f"{question}\n\n"
+        f"{choice_text}\n\n"
+        "Choose one option below."
+    )
 
 
 def grade_message(grade: dict[str, Any]) -> str:
@@ -122,7 +130,8 @@ def grade_message(grade: dict[str, Any]) -> str:
 <p><strong>Strength:</strong> {grade.get("strength", "")}</p>
 <p><strong>Improve:</strong> {grade.get("improvement", "")}</p>
 <p><strong>Missing points:</strong> {missing_text}</p>
-<p><strong>Sample answer:</strong> {grade.get("sample_answer", "")}</p>
+<p><strong>Correct answer:</strong> {grade.get("correct_answer", "")}</p>
+<p><strong>Explanation:</strong> {grade.get("sample_answer", "")}</p>
 </div>
 """
 
@@ -155,7 +164,7 @@ def render_header() -> None:
     st.markdown(
         """
 <div class="info-card">
-Choose a role, answer interview questions, get scored feedback, and see your weak areas.
+Choose a role, select MCQ answers, get scored feedback, and see your weak areas.
 </div>
         """,
         unsafe_allow_html=True,
@@ -165,9 +174,9 @@ Choose a role, answer interview questions, get scored feedback, and see your wea
 def render_sidebar() -> tuple[str, str, int, bool]:
     with st.sidebar:
         st.header("Interview Setup")
-        role = st.selectbox("Role", ROLES, index=3)
-        difficulty = st.selectbox("Difficulty", DIFFICULTIES)
-        max_questions = st.selectbox("Number of questions", QUESTION_OPTIONS, index=1)
+        role = st.radio("Role", ROLES, index=3)
+        difficulty = st.radio("Difficulty", DIFFICULTIES, horizontal=True)
+        max_questions = st.radio("Number of questions", QUESTION_OPTIONS, index=1, horizontal=True)
 
         st.divider()
         st.header("Session Controls")
@@ -206,12 +215,12 @@ def render_welcome() -> None:
     with col1:
         st.markdown('<div class="info-card"><strong>1. Choose a role</strong><br>Pick the job path you want to practice.</div>', unsafe_allow_html=True)
     with col2:
-        st.markdown('<div class="info-card"><strong>2. Answer questions</strong><br>Respond one question at a time.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="info-card"><strong>2. Pick an option</strong><br>Select one MCQ choice at a time.</div>', unsafe_allow_html=True)
     with col3:
         st.markdown('<div class="info-card"><strong>3. Get a final report</strong><br>See scores, weak areas, and next steps.</div>', unsafe_allow_html=True)
 
     st.info("Use the sidebar to start your interview.")
-    st.markdown("**Example roles:** Frontend Developer, Backend Developer, Data Analyst, AI Engineer Intern")
+    st.markdown("**Example roles:** Frontend Developer, Backend Developer, Data Analyst, AI Engineer")
 
 
 def render_chat_messages() -> None:
@@ -237,7 +246,7 @@ def render_side_panel(state: InterviewState) -> None:
     if state.get("last_grade"):
         st.write(f"{state['last_grade'].get('score', '-')}/10")
     else:
-        st.write("Answer the first question to see a score.")
+        st.write("Choose the first answer to see a score.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="side-card"><strong>Weak areas</strong><br>', unsafe_allow_html=True)
@@ -313,17 +322,31 @@ def handle_answer_submission(state: InterviewState) -> None:
     if state.get("stage") != "waiting_for_answer":
         return
 
-    answer = st.chat_input("Type your answer and press Enter")
-    if not answer:
+    choices = state.get("choices", [])
+    if not choices:
+        st.warning("No answer choices were generated. Please reset and start again.")
         return
 
-    validation_message = block_empty_answer(answer)
-    if validation_message:
-        st.warning(validation_message)
+    answer_key = (
+        f"answer_{state.get('session_id')}_{state.get('question_count')}_"
+        f"{len(state.get('asked_questions', []))}"
+    )
+    selected_answer = st.radio(
+        "Select your answer",
+        choices,
+        index=None,
+        key=answer_key,
+    )
+
+    if not st.button("Submit Answer", use_container_width=True):
         return
 
-    st.session_state.messages.append({"role": "user", "content": answer})
-    state["user_answer"] = answer
+    if not selected_answer:
+        st.warning("Please select an answer before I grade it.")
+        return
+
+    st.session_state.messages.append({"role": "user", "content": f"Selected: {selected_answer}"})
+    state["user_answer"] = selected_answer
 
     try:
         updated_state = grade_current_answer(state)

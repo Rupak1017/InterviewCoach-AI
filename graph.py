@@ -9,7 +9,6 @@ from typing_extensions import TypedDict
 
 from chains import generate_final_report_chain, generate_question_chain, grade_answer_chain
 from middleware import (
-    block_empty_answer,
     constructive_feedback_guard,
     limit_feedback_length,
     max_question_guard,
@@ -27,6 +26,8 @@ class InterviewState(TypedDict, total=False):
     question_count: int
     current_question: str
     current_topic: str
+    choices: list[str]
+    correct_answer: str
     expected_points: list[str]
     user_answer: str
     scores: list[int]
@@ -52,7 +53,7 @@ def generate_question_node(state: InterviewState) -> InterviewState:
         return updated
 
     topic = choose_topic(
-        updated.get("role", "AI Engineer Intern"),
+        updated.get("role", "AI Engineer"),
         updated.get("difficulty", "Easy"),
         updated.get("weak_areas", []),
         updated.get("next_topic", ""),
@@ -63,6 +64,8 @@ def generate_question_node(state: InterviewState) -> InterviewState:
 
     updated["current_question"] = question.question
     updated["current_topic"] = question.topic
+    updated["choices"] = question.choices
+    updated["correct_answer"] = question.correct_answer
     updated["expected_points"] = question.expected_points
     updated["asked_questions"] = updated.get("asked_questions", []) + [question.question]
     updated["user_answer"] = ""
@@ -75,25 +78,31 @@ def grade_answer_node(state: InterviewState) -> InterviewState:
     """Grade the submitted answer and update adaptive state."""
     updated = dict(state)
     answer = updated.get("user_answer", "")
-    validation_message = block_empty_answer(answer)
 
-    if validation_message:
-        updated["validation_message"] = validation_message
+    if not answer:
+        updated["validation_message"] = "Please select an answer before I grade it."
         updated["stage"] = "waiting_for_answer"
         return updated
 
     grade = grade_answer_chain(
         question=updated.get("current_question", ""),
         answer=answer,
+        choices=updated.get("choices", []),
+        correct_answer=updated.get("correct_answer", ""),
         expected_points=updated.get("expected_points", []),
-        role=updated.get("role", "AI Engineer Intern"),
+        role=updated.get("role", "AI Engineer"),
         difficulty=updated.get("difficulty", "Easy"),
     )
 
     grade.score = validate_score(grade.score)
+    if grade.score < 8:
+        grade.weak_area = updated.get("current_topic", grade.weak_area)
+    else:
+        grade.weak_area = ""
     grade.feedback = constructive_feedback_guard(limit_feedback_length(grade.feedback))
     grade.feedback = no_fake_experience_guard(grade.feedback)
     grade.sample_answer = no_fake_experience_guard(grade.sample_answer)
+    grade.correct_answer = updated.get("correct_answer", grade.correct_answer)
 
     feedback_line = f"Score {grade.score}/10: {grade.feedback}"
     save_score_tool(

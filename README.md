@@ -1,22 +1,22 @@
 # InterviewCoach AI
 
-InterviewCoach AI is a polished Streamlit mini app for practicing job interviews. Pick a role, answer one question at a time, get scored feedback, and finish with a short readiness report.
+InterviewCoach AI is a polished Streamlit mini app for practicing job interviews. Pick a role, answer multiple-choice questions one at a time, get scored feedback, and finish with a short readiness report.
 
 Supported roles:
 - Frontend Developer
 - Backend Developer
 - Data Analyst
-- AI Engineer Intern
+- AI Engineer
 
 ## What The AI Parts Do
 
 LangChain handles the Gemini prompt calls and structured Pydantic outputs for question generation, answer grading, and final reports.
 
-LangGraph controls the interview flow. The app runs one small graph to ask a question, pauses for the user's answer, then runs another graph to grade the answer and either ask the next question or create the final report.
+LangGraph controls the interview flow. The app runs one small graph to ask an MCQ, pauses for the user's selected option, then runs another graph to grade the selection and either ask the next question or create the final report.
 
 Tools are simple Python functions for choosing topics, calculating averages, finding weak areas, creating study plans, and saving scores.
 
-Middleware keeps the app friendly and reliable by blocking too-short answers, clamping scores to 1-10, shortening feedback, and guarding against rude or dishonest advice.
+Middleware keeps the app friendly and reliable by clamping scores to 1-10, shortening feedback, and guarding against rude or dishonest advice.
 
 JSON storage is used because this is a beginner-friendly portfolio project. There is no SQLite, no database server, and no external storage service.
 
@@ -89,12 +89,12 @@ Then add your Gemini key to `.env` when you want real AI responses.
 
 ## Example Flow
 
-1. Choose `AI Engineer Intern`.
+1. Choose `AI Engineer`.
 2. Choose `Easy`, `Medium`, or `Hard`.
 3. Choose 3, 5, or 10 questions.
 4. Click `Start Interview`.
-5. Answer the question in the chat box.
-6. Review your score, strength, improvement, missing points, and sample answer.
+5. Select one multiple-choice answer.
+6. Review your score, strength, improvement, missing points, correct answer, and explanation.
 7. Continue until the final report appears.
 
 ## Data Storage
