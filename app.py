@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from collections import Counter
 from typing import Any
 
@@ -11,14 +12,10 @@ import streamlit.components.v1 as components
 from chains import is_mock_mode
 from graph import InterviewState, generate_next_question, grade_current_answer
 from onboarding import (
-    can_use_onboarding_target,
-    current_tour_target,
     initialize_onboarding_state,
     mark_onboarding_seen,
     open_onboarding_tour,
     render_onboarding_persistence_bridge,
-    render_tour_controls,
-    render_tour_note,
 )
 from storage import create_session, ensure_data_file, list_sessions
 from styles import apply_styles
@@ -40,6 +37,14 @@ APP_DESCRIPTION = (
 TOPIC_PLACEHOLDER = (
     "Type a topic, e.g. AWS Bedrock, LangChain, React Hooks, RAG..."
 )
+ONBOARDING_TARGETS = ["role", "topic", "difficulty", "questions", "start"]
+ONBOARDING_TITLES = {
+    "role": "Welcome. Pick a role",
+    "topic": "Now pick any topic",
+    "difficulty": "Choose a level",
+    "questions": "Choose question count",
+    "start": "Start Guided Practice",
+}
 
 
 def initialize_session_state() -> None:
@@ -62,6 +67,105 @@ def initialize_session_state() -> None:
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def current_tour_target() -> str | None:
+    if not st.session_state.get("show_onboarding", False):
+        return None
+
+    step_index = min(
+        st.session_state.get("onboarding_step", 0),
+        len(ONBOARDING_TARGETS) - 1,
+    )
+    return ONBOARDING_TARGETS[step_index]
+
+
+def can_use_onboarding_target(target: str) -> bool:
+    current_target = current_tour_target()
+    return current_target is None or current_target == target
+
+
+def _current_onboarding_step() -> int:
+    return min(
+        st.session_state.get("onboarding_step", 0),
+        len(ONBOARDING_TARGETS) - 1,
+    )
+
+
+def _advance_onboarding_step() -> None:
+    step_index = _current_onboarding_step()
+    if step_index >= len(ONBOARDING_TARGETS) - 1:
+        mark_onboarding_seen()
+    else:
+        st.session_state.onboarding_step = step_index + 1
+
+
+def _back_onboarding_step() -> None:
+    st.session_state.onboarding_step = max(0, _current_onboarding_step() - 1)
+
+
+def render_tour_note(target: str, text: str) -> None:
+    if current_tour_target() != target:
+        return
+
+    st.markdown(
+        f"""
+<div class="tour-note">
+    <strong>{ONBOARDING_TITLES.get(target, "Guided setup")}</strong>
+    <p>{text}</p>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_tour_controls(
+    target: str,
+    can_continue: bool = True,
+    validate_on_continue: Callable[[], bool] | None = None,
+    validation_message: str = "",
+) -> None:
+    if current_tour_target() != target:
+        return
+
+    step_index = _current_onboarding_step()
+    is_last = step_index == len(ONBOARDING_TARGETS) - 1
+    message_key = f"tour_validation_{target}"
+
+    if st.session_state.get(message_key):
+        st.caption(st.session_state[message_key])
+
+    back_col, ok_col, skip_col = st.columns([1, 1.35, 1])
+    with back_col:
+        if st.button(
+            "Back",
+            key=f"tour_back_{target}",
+            disabled=step_index == 0,
+            use_container_width=True,
+        ):
+            _back_onboarding_step()
+            st.rerun()
+
+    with ok_col:
+        label = "Finish tour" if is_last else "OK, continue"
+        if st.button(
+            label,
+            key=f"tour_ok_{target}",
+            disabled=not can_continue,
+            use_container_width=True,
+        ):
+            if validate_on_continue and not validate_on_continue():
+                st.session_state[message_key] = validation_message
+                st.rerun()
+
+            st.session_state.pop(message_key, None)
+            _advance_onboarding_step()
+            st.rerun()
+
+    with skip_col:
+        if st.button("Skip", key=f"tour_skip_{target}", use_container_width=True):
+            mark_onboarding_seen()
+            st.rerun()
 
 
 def render_page_metadata() -> None:
