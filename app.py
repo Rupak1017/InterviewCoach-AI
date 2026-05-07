@@ -100,6 +100,58 @@ def render_page_metadata() -> None:
     )
 
 
+def render_scroll_to_startup_status() -> None:
+    """Move mobile users to the loading/status area after they start practice."""
+    components.html(
+        """
+<script>
+(function () {
+    const targetId = "practice-start-status";
+
+    function scrollNow() {
+        try {
+            const parentWindow = window.parent || window;
+            const doc = parentWindow.document;
+            const target = doc.getElementById(targetId);
+
+            if (target && target.scrollIntoView) {
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+                return;
+            }
+
+            parentWindow.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+            const scrollTargets = [
+                doc.scrollingElement,
+                doc.documentElement,
+                doc.body,
+                doc.querySelector('[data-testid="stAppViewContainer"]'),
+                doc.querySelector('[data-testid="stMain"]'),
+                doc.querySelector("section.stMain")
+            ].filter(Boolean);
+
+            scrollTargets.forEach(function (element) {
+                try {
+                    element.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                } catch (error) {
+                    element.scrollTop = 0;
+                }
+            });
+        } catch (error) {
+            // The app should never fail just because the scroll helper cannot run.
+        }
+    }
+
+    scrollNow();
+    setTimeout(scrollNow, 80);
+    setTimeout(scrollNow, 240);
+    setTimeout(scrollNow, 500);
+})();
+</script>
+        """,
+        height=0,
+    )
+
+
 def new_interview_state(
     role: str,
     selected_topic: str,
@@ -201,18 +253,12 @@ def start_guided_practice(role: str, selected_topic: str, difficulty: str, max_q
 
 def render_startup_status(config: dict[str, Any]) -> None:
     """Show visible progress while the first question is prepared."""
+    st.markdown('<span id="practice-start-status"></span>', unsafe_allow_html=True)
+    render_scroll_to_startup_status()
+
     with st.container(border=True):
         st.markdown("### Starting Guided Practice")
         st.caption("The coach is setting up your first focused practice question.")
-        st.markdown(
-            """
-<div class="loading-inline">
-    <span class="loading-spinner"></span>
-    <span>Loading your practice session...</span>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
 
         with st.status("Agent is preparing your session...", expanded=True) as status:
             st.write("Reading role, topic, difficulty, and question count.")
