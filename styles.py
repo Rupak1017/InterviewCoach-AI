@@ -1,0 +1,258 @@
+"""Shared Streamlit styling for InterviewCoach AI."""
+
+from __future__ import annotations
+
+import streamlit as st
+
+
+def apply_styles() -> None:
+    """Apply small product polish without changing Streamlit's core layout."""
+    st.markdown(
+        """
+<style>
+.stApp {
+    --ic-card-bg: var(--secondary-background-color, #fafafa);
+    --ic-feedback-bg: var(--background-color, #ffffff);
+    --ic-border: rgba(120, 120, 120, 0.24);
+    --ic-strong-border: rgba(120, 120, 120, 0.34);
+    --ic-text: var(--text-color, #111827);
+    --ic-pill-bg: var(--secondary-background-color, #f8fafc);
+    --ic-pill-border: rgba(120, 120, 120, 0.28);
+    --ic-tour-bg: #fffbeb;
+    --ic-tour-border: #f59e0b;
+    --ic-tour-text: #7c2d12;
+}
+
+.main-title {
+    font-size: 2.35rem;
+    font-weight: 800;
+    margin-bottom: 0rem;
+}
+
+.subtitle {
+    font-size: 1.05rem;
+    color: var(--ic-text);
+    opacity: 0.68;
+    margin-bottom: 1.2rem;
+}
+
+.info-card, .feedback-card {
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--ic-border);
+    background: var(--ic-card-bg);
+    color: var(--ic-text);
+    margin-bottom: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.info-card *, .feedback-card * {
+    color: inherit;
+}
+
+.feedback-card {
+    border-color: var(--ic-strong-border);
+    background: var(--ic-feedback-bg);
+}
+
+.feedback-card h3 {
+    margin-top: 0;
+    line-height: 1.2;
+}
+
+.small-muted {
+    color: var(--ic-text);
+    opacity: 0.68;
+    font-size: 0.9rem;
+}
+
+.pill {
+    display: inline-block;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--ic-pill-border);
+    background: var(--ic-pill-bg);
+    color: var(--ic-text);
+    margin: 0.15rem 0.2rem 0.15rem 0;
+    font-size: 0.88rem;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.tour-note {
+    padding: 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--ic-tour-border);
+    background: var(--ic-tour-bg);
+    color: var(--ic-tour-text);
+    margin: 0.35rem 0 0.75rem 0;
+    font-size: 0.92rem;
+    overflow-wrap: anywhere;
+}
+
+[data-testid="stDialogOverlay"] {
+    backdrop-filter: blur(2px);
+    background: rgba(15, 23, 42, 0.28);
+}
+
+div[role="dialog"] {
+    border-radius: 12px;
+}
+
+[data-testid="stMarkdownContainer"],
+[data-testid="stCaptionContainer"],
+[data-testid="stChatMessageContent"] {
+    overflow-wrap: anywhere;
+}
+
+div[data-testid="element-container"]:has([data-testid="stIFrame"]),
+div[data-testid="element-container"]:has(iframe[title="streamlit.components.v1.html"]) {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+[data-testid="stIFrame"],
+[data-testid="stIFrame"] iframe,
+iframe[title="streamlit.components.v1.html"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    .stApp {
+        --ic-card-bg: rgba(31, 41, 55, 0.72);
+        --ic-feedback-bg: rgba(17, 24, 39, 0.78);
+        --ic-border: rgba(148, 163, 184, 0.28);
+        --ic-strong-border: rgba(148, 163, 184, 0.34);
+        --ic-text: #f8fafc;
+        --ic-pill-bg: rgba(15, 23, 42, 0.7);
+        --ic-pill-border: rgba(148, 163, 184, 0.36);
+        --ic-tour-bg: rgba(120, 53, 15, 0.55);
+        --ic-tour-border: rgba(251, 191, 36, 0.65);
+        --ic-tour-text: #fde68a;
+    }
+}
+
+html[data-theme="dark"] .stApp,
+body[data-theme="dark"] .stApp,
+.stApp[data-theme="dark"],
+[data-theme="dark"] .stApp,
+[data-baseweb-theme="dark"] .stApp {
+    --ic-card-bg: rgba(31, 41, 55, 0.72);
+    --ic-feedback-bg: rgba(17, 24, 39, 0.78);
+    --ic-border: rgba(148, 163, 184, 0.28);
+    --ic-strong-border: rgba(148, 163, 184, 0.34);
+    --ic-text: #f8fafc;
+    --ic-pill-bg: rgba(15, 23, 42, 0.7);
+    --ic-pill-border: rgba(148, 163, 184, 0.36);
+    --ic-tour-bg: rgba(120, 53, 15, 0.55);
+    --ic-tour-border: rgba(251, 191, 36, 0.65);
+    --ic-tour-text: #fde68a;
+}
+
+@media (max-width: 768px) {
+    .block-container {
+        padding: 1rem 0.85rem 2rem 0.85rem !important;
+    }
+
+    .main-title {
+        font-size: 1.8rem;
+        line-height: 1.12;
+    }
+
+    .subtitle {
+        font-size: 0.95rem;
+        line-height: 1.35;
+        margin-bottom: 0.85rem;
+    }
+
+    .info-card, .feedback-card {
+        padding: 0.85rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .feedback-card h3 {
+        font-size: 1.18rem;
+    }
+
+    [data-testid="stChatMessage"] {
+        padding: 0.65rem 0.35rem;
+    }
+
+    [data-testid="stChatMessageContent"] {
+        max-width: calc(100vw - 4rem);
+    }
+
+    [data-testid="stMetric"] {
+        padding: 0.6rem 0;
+    }
+
+    [data-testid="stRadio"] div[role="radiogroup"] {
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    [data-testid="stRadio"] label {
+        min-height: 2.7rem;
+        align-items: flex-start;
+        padding-top: 0.35rem;
+        padding-bottom: 0.35rem;
+    }
+
+    [data-testid="stRadio"] label p {
+        line-height: 1.35;
+    }
+
+    .stButton > button {
+        min-height: 2.75rem;
+        white-space: normal;
+    }
+
+    [data-testid="stTextInput"] input {
+        min-height: 2.75rem;
+        font-size: 16px;
+    }
+
+    [data-testid="stExpander"] {
+        max-width: 100%;
+    }
+
+    section[data-testid="stSidebar"] {
+        max-width: 92vw !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.55rem;
+    }
+
+    div[role="dialog"] {
+        width: calc(100vw - 1.5rem) !important;
+        max-width: calc(100vw - 1.5rem) !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-title {
+        font-size: 1.65rem;
+    }
+
+    .subtitle {
+        font-size: 0.9rem;
+    }
+
+    .pill {
+        margin-right: 0.1rem;
+    }
+}
+</style>
+        """,
+        unsafe_allow_html=True,
+    )

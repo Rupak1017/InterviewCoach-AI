@@ -9,7 +9,17 @@ import streamlit as st
 
 from chains import is_mock_mode
 from graph import InterviewState, generate_next_question, grade_current_answer
+from onboarding import (
+    current_tour_target,
+    initialize_onboarding_state,
+    mark_onboarding_seen,
+    open_onboarding_tour,
+    render_onboarding_persistence_bridge,
+    render_onboarding_tour,
+    render_tour_note,
+)
 from storage import create_session, ensure_data_file, list_sessions
+from styles import apply_styles
 from tools import calculate_average_score, is_tavily_mock_mode, search_study_sources
 
 
@@ -25,97 +35,6 @@ TOPIC_PLACEHOLDER = (
     "AWS Bedrock, LangChain, React Hooks, LangGraph state, RAG, "
     "JavaScript closures, SQL joins..."
 )
-TOUR_STEPS = [
-    {
-        "target": "role",
-        "title": "Step 1: Choose a role",
-        "body": "Pick the interview track you want to practice. The coach adapts examples and expectations to this role.",
-    },
-    {
-        "target": "topic",
-        "title": "Step 2: Enter a topic",
-        "body": "Choose a focused topic like AWS Bedrock, LangChain, React Hooks, LangGraph state, RAG, or SQL joins.",
-    },
-    {
-        "target": "difficulty",
-        "title": "Step 3: Pick difficulty",
-        "body": "Easy checks fundamentals, Medium adds practical scenarios, and Hard asks for tradeoffs or deeper reasoning.",
-    },
-    {
-        "target": "questions",
-        "title": "Step 4: Choose question count",
-        "body": "Start small with 3 questions, or choose 5 or 10 for a longer practice session.",
-    },
-    {
-        "target": "start",
-        "title": "Step 5: Start practice",
-        "body": "When you click Start, the agent fetches study links, prepares a quick prep card, and generates the first question.",
-    },
-    {
-        "target": "main",
-        "title": "Step 6: Practice in the main area",
-        "body": "This is where quick prep, questions, your answers, feedback, useful links, and the final report appear.",
-    },
-]
-
-
-def apply_styles() -> None:
-    st.markdown(
-        """
-<style>
-.main-title {
-    font-size: 2.35rem;
-    font-weight: 800;
-    margin-bottom: 0rem;
-}
-.subtitle {
-    font-size: 1.05rem;
-    color: #666;
-    margin-bottom: 1.2rem;
-}
-.info-card, .feedback-card {
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid #e6e6e6;
-    background: #fafafa;
-    margin-bottom: 1rem;
-}
-.feedback-card {
-    background: #ffffff;
-}
-.small-muted {
-    color: #777;
-    font-size: 0.9rem;
-}
-.pill {
-    display: inline-block;
-    padding: 0.25rem 0.55rem;
-    border-radius: 999px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    margin: 0.15rem 0.2rem 0.15rem 0;
-    font-size: 0.88rem;
-}
-.tour-note {
-    padding: 0.65rem;
-    border-radius: 8px;
-    border: 1px solid #f59e0b;
-    background: #fffbeb;
-    color: #7c2d12;
-    margin: 0.35rem 0 0.75rem 0;
-    font-size: 0.92rem;
-}
-[data-testid="stDialogOverlay"] {
-    backdrop-filter: blur(2px);
-    background: rgba(15, 23, 42, 0.28);
-}
-div[role="dialog"] {
-    border-radius: 12px;
-}
-</style>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def initialize_session_state() -> None:
@@ -125,8 +44,11 @@ def initialize_session_state() -> None:
         "active": False,
         "last_error": "",
         "pending_practice": None,
-        "show_onboarding": True,
+        "show_onboarding": False,
         "onboarding_step": 0,
+        "manual_onboarding_requested": False,
+        "tour_seen_this_browser": False,
+        "tour_state_initialized": False,
         "is_processing": False,
         "last_processed_answer_id": "",
         "source_cache": {},
@@ -198,53 +120,6 @@ def get_cached_study_sources(role: str, topic: str) -> list[dict[str, Any]]:
     sources = search_study_sources(role, topic)
     cache[key] = sources
     return sources
-
-
-def current_tour_target() -> str | None:
-    if not st.session_state.get("show_onboarding", False):
-        return None
-
-    step = min(st.session_state.get("onboarding_step", 0), len(TOUR_STEPS) - 1)
-    return TOUR_STEPS[step]["target"]
-
-
-def render_tour_note(target: str, text: str) -> None:
-    if current_tour_target() == target:
-        st.markdown(f'<div class="tour-note">{text}</div>', unsafe_allow_html=True)
-
-
-@st.dialog("Guided onboarding tour")
-def render_onboarding_tour() -> None:
-    step_index = min(st.session_state.get("onboarding_step", 0), len(TOUR_STEPS) - 1)
-    step = TOUR_STEPS[step_index]
-
-    st.caption(f"{step_index + 1} of {len(TOUR_STEPS)}")
-    st.progress((step_index + 1) / len(TOUR_STEPS))
-    st.markdown(f"### {step['title']}")
-    st.write(step["body"])
-    st.caption("The current section is highlighted behind this tour card. The rest of the app is dimmed while you walk through the steps.")
-
-    back_col, next_col, skip_col = st.columns([1, 1, 1])
-    with back_col:
-        if st.button("Back", disabled=step_index == 0, use_container_width=True):
-            st.session_state.onboarding_step = max(0, step_index - 1)
-            st.rerun()
-
-    with next_col:
-        is_last = step_index == len(TOUR_STEPS) - 1
-        if st.button("Finish" if is_last else "Next", use_container_width=True):
-            if is_last:
-                st.session_state.show_onboarding = False
-                st.session_state.onboarding_step = 0
-            else:
-                st.session_state.onboarding_step = step_index + 1
-            st.rerun()
-
-    with skip_col:
-        if st.button("Skip", use_container_width=True):
-            st.session_state.show_onboarding = False
-            st.session_state.onboarding_step = 0
-            st.rerun()
 
 
 def question_message(state: InterviewState) -> str:
@@ -352,8 +227,7 @@ def render_sidebar() -> bool:
                 if not selected_topic.strip():
                     st.warning("Please enter a topic before starting.")
                 else:
-                    st.session_state.show_onboarding = False
-                    st.session_state.onboarding_step = 0
+                    mark_onboarding_seen()
                     st.session_state.pending_practice = {
                         "role": role,
                         "selected_topic": selected_topic.strip(),
@@ -387,8 +261,7 @@ def render_sidebar() -> bool:
         if is_tavily_mock_mode():
             st.caption("Using mock study links because TAVILY_API_KEY was not found.")
         if st.button("Show onboarding tour", use_container_width=True):
-            st.session_state.show_onboarding = True
-            st.session_state.onboarding_step = 0
+            open_onboarding_tour()
         show_saved_sessions = st.checkbox("Show saved sessions")
 
     return show_saved_sessions
@@ -401,7 +274,7 @@ def render_welcome() -> None:
             """
 <div class="info-card">
 <strong>Focus Tour</strong><br>
-The sidebar is open. Select a role, enter a topic, choose difficulty, choose question count, then start Guided Practice.
+Open the sidebar from the top-left button, then select a role, enter a topic, choose difficulty, choose question count, and start Guided Practice.
 </div>
         """,
             unsafe_allow_html=True,
@@ -415,7 +288,7 @@ The sidebar is open. Select a role, enter a topic, choose difficulty, choose que
             st.markdown("**3. Level**  \nChoose Easy, Medium, or Hard.")
         with col4:
             st.markdown("**4. Start**  \nPick 3, 5, or 10 questions.")
-        st.info("Use the sidebar tour to start your first session.")
+        st.info("Open the sidebar to set up your first session.")
 
 
 def render_source_links(sources: list[dict[str, Any]], limit: int = 4) -> None:
@@ -680,11 +553,13 @@ def main() -> None:
         page_title="InterviewCoach AI",
         page_icon="IC",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
     ensure_data_file()
     initialize_session_state()
+    initialize_onboarding_state()
     apply_styles()
+    render_onboarding_persistence_bridge()
 
     render_header()
     show_saved_sessions = render_sidebar()
