@@ -349,7 +349,7 @@ def render_home_setup() -> None:
 
         with st.container(border=True):
             st.markdown("**App mode**")
-            st.caption("Gemini mode" if not is_mock_mode() else "Mock Gemini mode")
+            st.caption("Bedrock mode" if not is_mock_mode() else "Mock Gemini mode")
             if is_tavily_mock_mode():
                 st.caption("Mock study links")
             if st.button("Show onboarding tour", use_container_width=True):

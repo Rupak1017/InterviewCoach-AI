@@ -12,8 +12,8 @@ TOUR_STORAGE_KEY = "interviewcoach_ai_focus_tour_seen"
 TOUR_STEPS = [
     {
         "target": "role",
-        "title": "Step 1: Choose a role",
-        "body": "Pick the interview track you want to practice. The question style adapts to this role.",
+        "title": "Step 1: Pick your interview role",
+        "body": "Start in the setup panel by choosing the role you want to practice, such as Frontend Developer, Backend Developer, Data Analyst, or AI Engineer.",
     },
     {
         "target": "topic",
@@ -37,8 +37,8 @@ TOUR_STEPS = [
     },
     {
         "target": "main",
-        "title": "Step 6: Practice in the main area",
-        "body": "This is where quick prep, questions, answers, feedback, useful links, and the final report appear.",
+        "title": "Step 6: Review prep, answer, and improve",
+        "body": "After practice starts, this area shows quick prep notes, one MCQ at a time, feedback after each answer, useful interview links, and your final report.",
     },
 ]
 
@@ -141,7 +141,7 @@ def render_onboarding_tour() -> None:
     st.progress((step_index + 1) / len(TOUR_STEPS))
     st.markdown(f"### {step['title']}")
     st.write(step["body"])
-    st.caption("Move one step at a time. The highlighted setup area is on the main screen.")
+    st.caption("Move one step at a time. The setup and practice flow both happen on this main page.")
 
     back_col, next_col, skip_col = st.columns([1, 1, 1])
     with back_col:
