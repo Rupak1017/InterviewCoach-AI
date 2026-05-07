@@ -2,6 +2,7 @@ streamlit
 langchain
 langchain-google-genai
 langgraph
+langchain-tavily
 pydantic
 python-dotenv
 typing-extensions
