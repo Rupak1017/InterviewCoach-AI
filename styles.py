@@ -85,6 +85,31 @@ def apply_styles() -> None:
     overflow-wrap: anywhere;
 }
 
+.loading-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--ic-text);
+    opacity: 0.82;
+    font-size: 0.92rem;
+    margin-top: 0.75rem;
+}
+
+.loading-spinner {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 999px;
+    border: 2px solid rgba(148, 163, 184, 0.35);
+    border-top-color: #ff5252;
+    animation: ic-spin 0.8s linear infinite;
+}
+
+@keyframes ic-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .tour-note {
     padding: 0.65rem;
     border-radius: 8px;
@@ -244,11 +269,25 @@ body[data-theme="dark"] .stApp,
     [data-testid="stRadio"] label {
         min-height: 2.7rem;
         align-items: flex-start;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 8px;
+        background: transparent;
+        color: inherit !important;
+        margin-bottom: 0.4rem;
+        width: 100%;
         padding-top: 0.35rem;
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
         padding-bottom: 0.35rem;
     }
 
+    [data-testid="stRadio"] label:has(input:checked) {
+        border-color: #ff5252;
+        background: rgba(255, 82, 82, 0.12);
+    }
+
     [data-testid="stRadio"] label p {
+        color: inherit !important;
         line-height: 1.35;
     }
 

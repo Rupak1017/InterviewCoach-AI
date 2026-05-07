@@ -44,6 +44,7 @@ def initialize_session_state() -> None:
         "active": False,
         "last_error": "",
         "pending_practice": None,
+        "start_button_clicked": False,
         "show_onboarding": False,
         "onboarding_step": 0,
         "manual_onboarding_requested": False,
@@ -100,6 +101,7 @@ def reset_active_interview() -> None:
     st.session_state.active = False
     st.session_state.last_error = ""
     st.session_state.pending_practice = None
+    st.session_state.start_button_clicked = False
     st.session_state.is_processing = False
     st.session_state.last_processed_answer_id = ""
 
@@ -128,13 +130,10 @@ def question_message(state: InterviewState) -> str:
     role = state.get("role", "Interview")
     topic = state.get("current_topic", "Current topic")
     question = state.get("current_question", "")
-    choices = state.get("choices", [])
-    choice_text = "\n".join(f"{index}. {choice}" for index, choice in enumerate(choices, start=1))
     return (
         f"**Question {question_number} of {max_questions} - {role}**\n\n"
         f"**Topic:** {topic}\n\n"
-        f"{question}\n\n"
-        f"{choice_text}"
+        f"{question}"
     )
 
 
@@ -150,11 +149,13 @@ def start_guided_practice(role: str, selected_topic: str, difficulty: str, max_q
             {"role": "assistant", "kind": "question", "content": question_message(state)}
         ]
         st.session_state.active = True
+        st.session_state.start_button_clicked = False
         st.session_state.is_processing = False
         st.session_state.last_processed_answer_id = ""
         st.session_state.last_error = ""
     except Exception as error:
         st.session_state.last_error = str(error)
+        st.session_state.start_button_clicked = False
 
 
 def render_startup_status(config: dict[str, Any]) -> None:
@@ -162,6 +163,15 @@ def render_startup_status(config: dict[str, Any]) -> None:
     with st.container(border=True):
         st.markdown("### Starting Guided Practice")
         st.caption("The coach is setting up your first focused practice question.")
+        st.markdown(
+            """
+<div class="loading-inline">
+    <span class="loading-spinner"></span>
+    <span>Loading your practice session...</span>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         with st.status("Agent is preparing your session...", expanded=True) as status:
             st.write("Reading role, topic, difficulty, and question count.")
@@ -214,6 +224,7 @@ def queue_guided_practice(
     st.session_state.interview_state = None
     st.session_state.last_error = ""
     st.session_state.is_processing = False
+    st.session_state.start_button_clicked = True
 
 
 def render_home_setup() -> None:
@@ -256,11 +267,32 @@ def render_home_setup() -> None:
 
             with st.container(border=current_tour_target() == "start"):
                 render_tour_note("start", "Click Start when the setup is ready.")
-                if st.button("Start Guided Practice", use_container_width=True):
+                start_label = (
+                    "Preparing practice..."
+                    if st.session_state.get("start_button_clicked", False)
+                    else "Start Guided Practice"
+                )
+                if st.button(
+                    start_label,
+                    use_container_width=True,
+                    disabled=st.session_state.get("start_button_clicked", False),
+                ):
                     if not selected_topic.strip():
                         st.warning("Please enter a topic before starting.")
                     else:
                         queue_guided_practice(role, selected_topic, difficulty, max_questions)
+                        st.rerun()
+
+                if st.session_state.get("start_button_clicked", False):
+                    st.markdown(
+                        """
+<div class="loading-inline">
+    <span class="loading-spinner"></span>
+    <span>Preparing your first question...</span>
+</div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
     with info_col:
         with st.container(border=True):
@@ -299,6 +331,14 @@ def render_source_links(sources: list[dict[str, Any]], limit: int = 4) -> None:
             st.caption(snippet[:220])
 
 
+def short_text(text: str, max_sentences: int = 2) -> str:
+    """Keep prep cards compact for small screens."""
+    pieces = [piece.strip() for piece in text.replace("\n", " ").split(".") if piece.strip()]
+    if not pieces:
+        return text
+    return ". ".join(pieces[:max_sentences]) + "."
+
+
 def render_quick_prep(state: InterviewState) -> None:
     if state.get("stage") == "complete":
         return
@@ -309,7 +349,7 @@ def render_quick_prep(state: InterviewState) -> None:
 
     with st.container(border=True):
         st.markdown(f"### Quick Prep: {state.get('current_topic', 'Current topic')}")
-        st.write(prep.get("overview", ""))
+        st.write(short_text(prep.get("overview", "")))
 
         key_points = prep.get("key_points", [])[:2]
         if key_points:
@@ -321,7 +361,7 @@ def render_quick_prep(state: InterviewState) -> None:
         if mistake:
             st.markdown(f"**Common mistake:** {mistake}")
 
-        with st.expander("Useful links", expanded=False):
+        with st.expander("Useful links for interview", expanded=False):
             render_source_links(prep.get("sources", []), limit=4)
 
 
@@ -357,7 +397,7 @@ def render_feedback_message(grade: dict[str, Any]) -> None:
         st.write(grade.get("sample_answer", ""))
 
     if links:
-        with st.expander("Useful links", expanded=False):
+        with st.expander("Useful links for interview", expanded=False):
             render_source_links(links, limit=4)
 
 
@@ -383,12 +423,18 @@ def handle_answer_submission(state: InterviewState) -> None:
         f"answer_{state.get('session_id')}_{state.get('question_count')}_"
         f"{len(state.get('asked_questions', []))}"
     )
-    answer = st.radio(
-        "Choose one answer",
-        choices,
+    choice_labels = [f"{chr(65 + index)}. {choice}" for index, choice in enumerate(choices)]
+    st.markdown("### Choose the best answer")
+    selected_label = st.radio(
+        "Answer choices",
+        choice_labels,
         index=None,
         key=answer_key,
+        label_visibility="collapsed",
     )
+    answer = None
+    if selected_label:
+        answer = choices[choice_labels.index(selected_label)]
 
     if not st.button(
         "Submit Answer",
