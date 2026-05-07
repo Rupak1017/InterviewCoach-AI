@@ -22,22 +22,12 @@ TOUR_STEPS = [
     },
     {
         "target": "difficulty",
-        "title": "Step 3: Pick difficulty",
-        "body": "Easy checks fundamentals, Medium adds practical scenarios, and Hard asks for tradeoffs or deeper reasoning.",
-    },
-    {
-        "target": "questions",
-        "title": "Step 4: Choose question count",
-        "body": "Start small with 3 questions, or choose 5 or 10 for a longer practice session.",
+        "title": "Step 3: Set level and length",
+        "body": "Choose the MCQ difficulty and the number of questions. Start with 3 questions for a quick practice run.",
     },
     {
         "target": "start",
-        "title": "Step 5: Start practice",
-        "body": "When you click Start, the agent fetches study links, prepares a quick prep card, and generates the first question.",
-    },
-    {
-        "target": "main",
-        "title": "Step 6: Review prep, answer, and improve",
+        "title": "Step 4: Start and review feedback",
         "body": "After practice starts, this area shows quick prep notes, one MCQ at a time, feedback after each answer, useful interview links, and your final report.",
     },
 ]
